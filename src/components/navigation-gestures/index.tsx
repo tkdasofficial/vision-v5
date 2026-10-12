@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import AppDrawerView from "@/components/app-drawer";
 import { isMotionReduced } from "@/lib/app-motion";
-import { classifyRoute } from "@/lib/route-access";
+import { classifyRoute, safeReturnPath } from "@/lib/route-access";
 import { DRAWER_EVENT, drawerProgress, settleDrawer, springStep } from "@/lib/navigation-motion";
 
 type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back"; active: boolean };
@@ -16,7 +16,8 @@ export default function NavigationGestures() {
   const router = useRouter();
   const location = useLocation();
   const navigate = useNavigate();
-  const enabled = Boolean(user) && classifyRoute(location.pathname) === "protected" && !location.pathname.startsWith("/admin") && location.pathname !== "/drawer";
+  const enabled = Boolean(user) && classifyRoute(location.pathname) === "protected" && !location.pathname.startsWith("/admin");
+  const directDrawer = location.pathname === "/drawer";
   const [visible, setVisible] = useState(false);
   const layer = useRef<HTMLDivElement>(null);
   const progress = useRef(0);
@@ -26,8 +27,8 @@ export default function NavigationGestures() {
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
   const lastFocus = useRef<HTMLElement | null>(null);
-  const current = useRef({ enabled, navigate, router });
-  current.current = { enabled, navigate, router };
+  const current = useRef({ enabled, directDrawer, location, navigate, router });
+  current.current = { enabled, directDrawer, location, navigate, router };
   const paint = (value: number) => {
     progress.current = value;
     layer.current?.style.setProperty("--drawer-progress", String(value));
@@ -64,7 +65,7 @@ export default function NavigationGestures() {
   useEffect(() => { cancelAnimationFrame(frame.current); drag.current = null; dismiss(); }, [location.pathname, location.searchStr]);
   useEffect(() => {
     const open = (event: Event) => {
-      if (!current.current.enabled) return;
+      if (!current.current.enabled || current.current.directDrawer) return;
       event.preventDefault(); settleRef.current(true);
     };
     const down = (event: PointerEvent) => {
@@ -73,10 +74,16 @@ export default function NavigationGestures() {
       if (!(event.target instanceof Element)) return;
       if (event.target.closest("input, textarea, select, [contenteditable=true], [role=slider], [data-navigation-gesture=off]")) return;
       const edge = event.clientX <= 24;
-      if (!opened.current && !edge && event.target.closest("button, a, [role=button], pre, table, [role=tablist]")) return;
-      if (!opened.current && !edge && !current.current.router.history.canGoBack()) return;
+      const drawer = opened.current || current.current.directDrawer;
+      if (!drawer && !edge && event.target.closest("button, a, [role=button], pre, table, [role=tablist]")) return;
+      let ancestor: Element | null = event.target;
+      while (ancestor && !edge && !drawer) {
+        if (ancestor.scrollWidth > ancestor.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(ancestor).overflowX)) return;
+        ancestor = ancestor.parentElement;
+      }
+      if (!drawer && !edge && !current.current.router.history.canGoBack()) return;
       cancelAnimationFrame(frame.current);
-      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, time: performance.now(), start: opened.current ? progress.current : 0, velocity: 0, kind: opened.current || edge ? "drawer" : "back", active: false };
+      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, time: performance.now(), start: current.current.directDrawer ? 1 : opened.current ? progress.current : 0, velocity: 0, kind: drawer || edge ? "drawer" : "back", active: false };
     };
     const move = (event: PointerEvent) => {
       const gesture = drag.current;
@@ -90,13 +97,17 @@ export default function NavigationGestures() {
           return;
         }
         gesture.active = true; suppressClick.current = true;
-        if (gesture.kind === "drawer") show();
+        if (gesture.kind === "drawer" && !current.current.directDrawer) show();
       }
       event.preventDefault();
       const now = performance.now();
       gesture.velocity = (event.clientX - gesture.lastX) / Math.max(1, now - gesture.time) * 1000 / window.innerWidth;
       gesture.time = now; gesture.lastX = event.clientX;
-      if (gesture.kind === "drawer") paint(drawerProgress(gesture.start, dx, window.innerWidth));
+      if (gesture.kind === "drawer") {
+        const value = drawerProgress(gesture.start, dx, window.innerWidth);
+        if (current.current.directDrawer) document.querySelector<HTMLElement>("[aria-label='App drawer']")?.style.setProperty("translate", `${(value - 1) * 100}% 0`);
+        else paint(value);
+      }
     };
     const release = (event: PointerEvent) => {
       const gesture = drag.current;
@@ -106,6 +117,13 @@ export default function NavigationGestures() {
       if (performance.now() - gesture.time > 100) gesture.velocity = 0;
       if (gesture.kind === "back") {
         if (!cancelled && gesture.active && settleDrawer(drawerProgress(0, event.clientX - gesture.x, window.innerWidth), gesture.velocity)) current.current.navigate(-1);
+      } else if (current.current.directDrawer) {
+        const page = document.querySelector<HTMLElement>("[aria-label='App drawer']");
+        page?.style.removeProperty("translate");
+        if (!cancelled && gesture.active && !settleDrawer(drawerProgress(1, event.clientX - gesture.x, window.innerWidth), gesture.velocity)) {
+          const target = safeReturnPath(new URLSearchParams(current.current.location.searchStr).get("returnTo"));
+          current.current.navigate(target.startsWith("/drawer") ? "/chat" : target, { direction: "back", replace: true });
+        } else if (gesture.active && !isMotionReduced()) page?.animate([{ translate: `${(drawerProgress(1, gesture.lastX - gesture.x, window.innerWidth) - 1) * 100}% 0` }, { translate: "0% 0" }], { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
       } else if (gesture.active || opened.current) settleRef.current(cancelled ? gesture.start > 0.5 : settleDrawer(progress.current, gesture.velocity), gesture.velocity);
       window.setTimeout(() => { suppressClick.current = false; }, 0);
     };
@@ -135,7 +153,7 @@ export default function NavigationGestures() {
       media.removeEventListener("change", preference); observer.disconnect();
     };
   }, []);
-  if (!enabled) return null;
+  if (!enabled || directDrawer) return null;
   return <>
     {!visible && <div className="navigation-edge" aria-hidden="true" />}
     <Dialog.Root open={visible} onOpenChange={(open) => settleRef.current(open)}>
