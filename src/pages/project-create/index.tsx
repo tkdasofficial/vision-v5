@@ -7,9 +7,8 @@ import { useChatHistory } from "@/context/ChatHistoryContext";
 import { supabase } from "@/lib/cloud/client";
 import { projectCategories, projectIcons } from "@/lib/project-options";
 import { PROJECT_NAME_MAX, clampProjectName } from "@/lib/project-name";
-import WorkspaceShell from "@/components/workspace-shell";
+import FloatingWorkspacePage from "@/components/floating-workspace-page";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export type ProjectMemory = "default" | "project";
@@ -19,7 +18,7 @@ const memoryOptions: { value: ProjectMemory; title: string; body: string; icon: 
 ];
 
 function Section({ step, title, hint, children }: { step: number; title: string; hint?: string; children: React.ReactNode }) {
-  return <section className="motion-reveal rounded-[1.75rem] border border-border/60 bg-card/40 p-3 shadow-lg shadow-background/40 backdrop-blur-xl" style={{ animationDelay: `${step * 50}ms` }}>
+  return <section className="motion-reveal drawer-floating rounded-[1.75rem] p-3" style={{ animationDelay: `${step * 50}ms` }}>
     <header className="mb-2 flex items-baseline gap-2 px-1">
       <span className="text-[11px] font-medium tabular-nums text-muted-foreground">0{step}</span>
       <h2 className="text-[13px] font-semibold">{title}</h2>
@@ -60,9 +59,16 @@ export default function ProjectCreate() {
     finally { setSaving(false); }
   };
 
-  return <WorkspaceShell title="Create project" backTo={back}>
-    <form className="mx-auto max-w-lg space-y-3 pb-28" onSubmit={(event) => { event.preventDefault(); void create(); }}>
-      <div className="motion-reveal sticky top-2 z-10 flex items-center gap-3 rounded-full border border-border/60 bg-card/50 p-2 pr-4 shadow-xl shadow-background/50 backdrop-blur-2xl">
+  return <FloatingWorkspacePage title="Create project" backTo={back} query="" onQueryChange={() => {}} pullDownSearch footer={
+    <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="motion-reveal mx-auto flex max-w-lg gap-2 rounded-full p-1.5 drawer-floating">
+        <Button type="button" variant="ghost" className="h-10 flex-1 rounded-full" disabled={saving} onClick={() => navigate(back)}>Cancel</Button>
+        <Button type="submit" form="create-project-form" className="h-10 flex-[2] rounded-full" disabled={!ready || saving}><Plus />{saving ? "Creating…" : "Create project"}</Button>
+      </div>
+    </div>
+  }>
+    <form id="create-project-form" className="mx-auto max-w-lg space-y-3" onSubmit={(event) => { event.preventDefault(); void create(); }}>
+      <div className="motion-reveal drawer-floating flex items-center gap-3 rounded-full p-2 pr-4">
         <div className="grid size-11 shrink-0 place-items-center rounded-full bg-secondary/70 text-foreground" key={icon ?? "none"}><PreviewIcon className="size-5 motion-reveal" /></div>
         <div className="min-w-0">
           <p className={cn("truncate text-sm font-semibold", !name.trim() && "text-muted-foreground")}>{name.trim() || "Untitled project"}</p>
@@ -72,39 +78,32 @@ export default function ProjectCreate() {
 
       <Section step={1} title="Name">
         <div className="relative">
-          <Input id="project-name" aria-label="Project name" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Brand launch" maxLength={PROJECT_NAME_MAX} required disabled={saving} className="h-11 rounded-full border-border/60 bg-background/40 pr-14 text-sm" />
+          <input id="project-name" aria-label="Project name" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Brand launch" maxLength={PROJECT_NAME_MAX} required disabled={saving} className="drawer-floating h-11 w-full rounded-full bg-transparent pl-4 pr-14 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[11px] tabular-nums text-muted-foreground">{name.length}/{PROJECT_NAME_MAX}</span>
         </div>
       </Section>
 
       <Section step={2} title="Icon" hint="Optional">
         <div className={rowClass}>
-          {projectIcons.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)} className={cn("motion-control grid size-11 shrink-0 snap-start place-items-center rounded-full border transition-colors", icon === value ? "border-foreground bg-foreground text-background" : "border-border/60 bg-background/40 hover:bg-accent")}><Icon className="size-[18px]" /></button>)}
+          {projectIcons.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)} className={cn("motion-control drawer-filter grid size-11 shrink-0 snap-start place-items-center rounded-full", icon === value && "border-transparent")} data-state={icon === value ? "active" : undefined}><Icon className="size-[18px]" /></button>)}
         </div>
       </Section>
 
       <Section step={3} title="Category">
         <div role="radiogroup" aria-label="Category" className={rowClass}>
-          {projectCategories.map((entry) => <button key={entry} type="button" role="radio" aria-checked={category === entry} disabled={saving} onClick={() => setCategory(entry)} className={cn("motion-control h-9 shrink-0 snap-start whitespace-nowrap rounded-full border px-4 text-[13px] transition-colors", category === entry ? "border-foreground bg-foreground text-background" : "border-border/60 bg-background/40 hover:bg-accent")}>{entry}</button>)}
+          {projectCategories.map((entry) => <button key={entry} type="button" role="radio" aria-checked={category === entry} disabled={saving} onClick={() => setCategory(entry)} className="motion-control drawer-filter h-9 shrink-0 snap-start whitespace-nowrap rounded-full px-4 text-[13px]" data-state={category === entry ? "active" : undefined}>{entry}</button>)}
         </div>
       </Section>
 
       <Section step={4} title="Memory">
         <div role="radiogroup" aria-label="Memory" className="grid grid-cols-2 gap-2">
-          {memoryOptions.map(({ value, title, body, icon: Icon }) => <button key={value} type="button" role="radio" aria-checked={memory === value} disabled={saving} onClick={() => setMemory(value)} className={cn("motion-control relative flex gap-2 rounded-3xl border p-3 text-left transition-colors", memory === value ? "border-foreground bg-secondary/70" : "border-border/60 bg-background/40 hover:bg-accent")}>
+          {memoryOptions.map(({ value, title, body, icon: Icon }) => <button key={value} type="button" role="radio" aria-checked={memory === value} disabled={saving} onClick={() => setMemory(value)} className={cn("motion-control drawer-filter relative flex gap-2 rounded-3xl p-3 text-left", memory === value && "border-transparent")} data-state={memory === value ? "checked" : undefined}>
             <Icon className="mt-0.5 size-4 shrink-0" />
-            <span className="min-w-0"><span className="block pr-4 text-[13px] font-medium">{title}</span><span className="block text-[11px] leading-snug text-muted-foreground">{body}</span></span>
+            <span className="min-w-0"><span className="block pr-4 text-[13px] font-medium">{title}</span><span className="block text-[11px] leading-snug opacity-70">{body}</span></span>
             {memory === value && <Check className="absolute right-3 top-3 size-4" />}
           </button>)}
         </div>
       </Section>
-
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="motion-reveal pointer-events-auto mx-auto flex max-w-lg gap-2 rounded-full border border-border/60 bg-card/50 p-1.5 shadow-2xl shadow-background/60 backdrop-blur-2xl">
-          <Button type="button" variant="ghost" className="h-10 flex-1 rounded-full" disabled={saving} onClick={() => navigate(back)}>Cancel</Button>
-          <Button type="submit" className="h-10 flex-[2] rounded-full" disabled={!ready || saving}><Plus />{saving ? "Creating…" : "Create project"}</Button>
-        </div>
-      </div>
     </form>
-  </WorkspaceShell>;
+  </FloatingWorkspacePage>;
 }
