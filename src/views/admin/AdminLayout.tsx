@@ -7,7 +7,7 @@ import {
   MessageSquare, Zap, TrendingUp, Settings, LifeBuoy, Megaphone, ToggleLeft, ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/logo.svg";
+import { AppLogo } from "@/components/app-logo";
 
 const NAV_GROUPS: { label: string; items: { path: string; label: string; icon: any }[] }[] = [
   {
@@ -98,7 +98,7 @@ const AdminLayout = () => {
     <div className="flex h-[100dvh] w-screen overflow-hidden bg-background">
       <aside className="hidden lg:flex flex-col w-[240px] bg-sidebar border-r border-sidebar-border h-full shrink-0">
         <div className="flex items-center gap-2.5 px-4 py-4">
-          <img src={logo} alt="Admin" className="w-8 h-8 rounded-full" />
+          <AppLogo alt="Admin" className="w-8 h-8 rounded-full" />
           <span className="font-display font-semibold text-foreground text-sm">Admin Panel</span>
         </div>
         <NavBody />

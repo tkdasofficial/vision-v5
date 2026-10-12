@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { Building2, Globe, Mail, ArrowLeft, ShieldCheck, Copy, BadgeCheck, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.svg";
+import { AppLogo } from "@/components/app-logo";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   enterpriseStateFn, enterpriseStartFn, enterpriseCheckDomainFn, enterpriseEmailFn, enterpriseResendFn, enterpriseVerifyFn, enterpriseCancelFn,
@@ -52,7 +52,7 @@ const EnterpriseLogin = ({ page }: { page: Page }) => {
 
   const header = (title: string, sub: string) => (
     <div className="flex flex-col items-center gap-3">
-      <img src={logo} alt="Vision" className="w-14 h-14 rounded-full" />
+      <AppLogo className="w-14 h-14 rounded-full" />
       <h1 className="font-display text-xl font-semibold text-foreground">{title}</h1>
       <p className="text-sm text-muted-foreground text-center">{sub}</p>
     </div>

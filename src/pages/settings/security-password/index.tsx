@@ -7,7 +7,7 @@ import { useNavigate } from "@/lib/router-compat";
 import { securityStatusFn } from "@/lib/cloud/account-security.functions";
 import { requestPasswordResetFn, verifyResetCodeFn, completePasswordResetFn } from "@/lib/cloud/auth.functions";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import logo from "@/assets/logo.svg";
+import { AppLogo } from "@/components/app-logo";
 import { cn } from "@/lib/utils";
 
 type Step = "send" | "code" | "password";
@@ -72,7 +72,7 @@ export default function ResetPasswordCode() {
 
       <div className="w-full max-w-sm mx-auto flex flex-col gap-7 px-1 pt-4 pb-10 sm:px-6">
         <div className="space-y-2">
-          <img src={logo} alt="Vision" className="w-12 h-12 rounded-2xl" />
+          <AppLogo className="w-12 h-12 rounded-2xl" />
           <h2 className="font-display text-2xl font-semibold text-foreground pt-4">{title}</h2>
           <p className="text-sm text-muted-foreground">{sub}</p>
         </div>
