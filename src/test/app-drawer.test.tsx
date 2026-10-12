@@ -39,13 +39,15 @@ describe("AppDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     expect(mocks.navigate).toHaveBeenCalledWith("/settings");
   });
-  it("embeds search and returns to navigation without page navigation", () => {
+  it("embeds search and returns to navigation without page navigation", async () => {
     const close = vi.fn();
     const { container } = render(<AppDrawerView onClose={close} onNewChat={vi.fn()} onSelectChat={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Search workspace" }));
     const search = screen.getByRole("searchbox", { name: "Search anything" });
     expect(search).toHaveFocus();
-    expect(screen.queryByRole("button", { name: "Search workspace" })).not.toBeInTheDocument();
+    // The drawer content plays its exit animation before unmounting.
+    expect(screen.getByRole("button", { name: "Search workspace" }).closest("header")).toHaveClass("drawer-pane-out");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Search workspace" })).not.toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Vision" })).not.toBeInTheDocument();
     const filters = screen.getByRole("tablist", { name: "Search categories" });
     expect(search.closest(".drawer-top")).toHaveClass("relative");
