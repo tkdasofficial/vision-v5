@@ -1,4 +1,4 @@
-import { Library, AtSign, Settings, BookOpen } from "lucide-react";
+import { Library, AtSign } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -7,14 +7,12 @@ import { Button } from "@/components/ui/button";
 const features = [
   { label: "Library", to: "/library", icon: Library },
   { label: "Plugins", to: "/integrations", icon: AtSign },
-  { label: "Settings", to: "/settings", icon: Settings },
-  { label: "Guide", to: "/guide", icon: BookOpen },
 ] as const;
 
 export default function SidebarFeatures({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   return (
-    <nav aria-label="Workspace features" className="grid grid-cols-2 gap-2 pt-3 sm:grid-cols-4">
+    <nav aria-label="Workspace features" className="grid gap-2 pt-3 sm:grid-cols-2">
       {features.map(({ label, to, icon: Icon }) => {
         const active = pathname === to;
         return (
