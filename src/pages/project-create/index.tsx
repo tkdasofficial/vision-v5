@@ -20,7 +20,6 @@ const memoryOptions: { value: ProjectMemory; title: string; body: string; icon: 
 function Section({ step, title, hint, children }: { step: number; title: string; hint?: string; children: React.ReactNode }) {
   return <section className="motion-reveal drawer-floating rounded-[1.75rem] p-3" style={{ animationDelay: `${step * 50}ms` }}>
     <header className="mb-2 flex items-baseline gap-2 px-1">
-      <span className="text-[11px] font-medium tabular-nums text-muted-foreground">0{step}</span>
       <h2 className="text-[13px] font-semibold">{title}</h2>
       {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </header>
@@ -28,7 +27,7 @@ function Section({ step, title, hint, children }: { step: number; title: string;
   </section>;
 }
 
-const rowClass = "-mx-3 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+const rowClass = "-mx-3 flex gap-2 overflow-x-auto overscroll-x-contain px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export default function ProjectCreate() {
   const { user } = useAuth();
@@ -96,7 +95,7 @@ export default function ProjectCreate() {
       </Section>
 
       <Section step={4} title="Memory">
-        <div role="radiogroup" aria-label="Memory" className="grid grid-cols-2 gap-2">
+        <div role="radiogroup" aria-label="Memory" className="grid gap-2">
           {memoryOptions.map(({ value, title, body, icon: Icon }) => <button key={value} type="button" role="radio" aria-checked={memory === value} disabled={saving} onClick={() => setMemory(value)} className={cn("motion-control drawer-filter relative flex gap-2 rounded-3xl p-3 text-left", memory === value && "border-transparent")} data-state={memory === value ? "checked" : undefined}>
             <Icon className="mt-0.5 size-4 shrink-0" />
             <span className="min-w-0"><span className="block pr-4 text-[13px] font-medium">{title}</span><span className="block text-[11px] leading-snug opacity-70">{body}</span></span>
