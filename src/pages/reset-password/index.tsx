@@ -3,7 +3,7 @@ import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/lib/cloud/client";
 import { Lock, Eye, EyeOff, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.svg";
+import { AppLogo } from "@/components/app-logo";
 
 // Step 2 of password reset. Only reachable after /auth/verify accepted the code,
 // which leaves a short-lived reset ticket in an HttpOnly cookie.
@@ -52,7 +52,7 @@ const ResetPassword = () => {
     <div className="min-h-[100dvh] bg-background flex flex-col px-6 py-10 sm:py-14">
       <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center gap-8">
         <div className="space-y-2">
-          <img src={logo} alt="Vision" className="w-12 h-12 rounded-2xl" />
+          <AppLogo className="w-12 h-12 rounded-2xl" />
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-foreground pt-4">
             {status === "expired" ? "Reset link expired" : "Set a new password"}
           </h1>
