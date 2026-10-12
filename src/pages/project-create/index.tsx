@@ -19,15 +19,17 @@ const memoryOptions: { value: ProjectMemory; title: string; body: string; icon: 
 ];
 
 function Section({ step, title, hint, children }: { step: number; title: string; hint?: string; children: React.ReactNode }) {
-  return <section className="motion-reveal rounded-3xl border border-border bg-card/60 p-4 sm:p-5" style={{ animationDelay: `${step * 50}ms` }}>
-    <header className="mb-3 flex items-baseline gap-2">
-      <span className="text-xs font-medium tabular-nums text-muted-foreground">0{step}</span>
-      <h2 className="text-sm font-semibold">{title}</h2>
-      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+  return <section className="motion-reveal rounded-[1.75rem] border border-border/60 bg-card/40 p-3 shadow-lg shadow-background/40 backdrop-blur-xl" style={{ animationDelay: `${step * 50}ms` }}>
+    <header className="mb-2 flex items-baseline gap-2 px-1">
+      <span className="text-[11px] font-medium tabular-nums text-muted-foreground">0{step}</span>
+      <h2 className="text-[13px] font-semibold">{title}</h2>
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </header>
     {children}
   </section>;
 }
+
+const rowClass = "-mx-3 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export default function ProjectCreate() {
   const { user } = useAuth();
@@ -59,48 +61,48 @@ export default function ProjectCreate() {
   };
 
   return <WorkspaceShell title="Create project" backTo={back}>
-    <form className="mx-auto max-w-lg space-y-4 pb-28" onSubmit={(event) => { event.preventDefault(); void create(); }}>
-      <div className="motion-reveal flex items-center gap-4 rounded-3xl border border-border bg-card p-4">
-        <div className="grid size-14 shrink-0 place-items-center rounded-full bg-secondary text-foreground transition-transform duration-300" key={icon ?? "none"}><PreviewIcon className="size-7 motion-reveal" /></div>
+    <form className="mx-auto max-w-lg space-y-3 pb-28" onSubmit={(event) => { event.preventDefault(); void create(); }}>
+      <div className="motion-reveal sticky top-2 z-10 flex items-center gap-3 rounded-full border border-border/60 bg-card/50 p-2 pr-4 shadow-xl shadow-background/50 backdrop-blur-2xl">
+        <div className="grid size-11 shrink-0 place-items-center rounded-full bg-secondary/70 text-foreground" key={icon ?? "none"}><PreviewIcon className="size-5 motion-reveal" /></div>
         <div className="min-w-0">
-          <p className={cn("truncate text-base font-semibold", !name.trim() && "text-muted-foreground")}>{name.trim() || "Untitled project"}</p>
-          <p className="truncate text-xs text-muted-foreground">{category || "No category"} · {memory === "project" ? "Project-only memory" : "Default memory"}</p>
+          <p className={cn("truncate text-sm font-semibold", !name.trim() && "text-muted-foreground")}>{name.trim() || "Untitled project"}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{category || "No category"} · {memory === "project" ? "Project-only memory" : "Default memory"}</p>
         </div>
       </div>
 
       <Section step={1} title="Name">
         <div className="relative">
-          <Input id="project-name" aria-label="Project name" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Brand launch" maxLength={PROJECT_NAME_MAX} required disabled={saving} className="h-12 rounded-full pr-14 text-base" />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs tabular-nums text-muted-foreground">{name.length}/{PROJECT_NAME_MAX}</span>
+          <Input id="project-name" aria-label="Project name" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Brand launch" maxLength={PROJECT_NAME_MAX} required disabled={saving} className="h-11 rounded-full border-border/60 bg-background/40 pr-14 text-sm" />
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[11px] tabular-nums text-muted-foreground">{name.length}/{PROJECT_NAME_MAX}</span>
         </div>
       </Section>
 
       <Section step={2} title="Icon" hint="Optional">
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-          {projectIcons.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)} className={cn("motion-control grid aspect-square place-items-center rounded-full border transition-colors", icon === value ? "border-foreground bg-secondary" : "border-border hover:bg-accent")}><Icon className="size-5" /></button>)}
+        <div className={rowClass}>
+          {projectIcons.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)} className={cn("motion-control grid size-11 shrink-0 snap-start place-items-center rounded-full border transition-colors", icon === value ? "border-foreground bg-foreground text-background" : "border-border/60 bg-background/40 hover:bg-accent")}><Icon className="size-[18px]" /></button>)}
         </div>
       </Section>
 
       <Section step={3} title="Category">
-        <div role="radiogroup" aria-label="Category" className="flex flex-wrap gap-2">
-          {projectCategories.map((entry) => <button key={entry} type="button" role="radio" aria-checked={category === entry} disabled={saving} onClick={() => setCategory(entry)} className={cn("motion-control h-9 rounded-full border px-4 text-sm transition-colors", category === entry ? "border-foreground bg-foreground text-background" : "border-border hover:bg-accent")}>{entry}</button>)}
+        <div role="radiogroup" aria-label="Category" className={rowClass}>
+          {projectCategories.map((entry) => <button key={entry} type="button" role="radio" aria-checked={category === entry} disabled={saving} onClick={() => setCategory(entry)} className={cn("motion-control h-9 shrink-0 snap-start whitespace-nowrap rounded-full border px-4 text-[13px] transition-colors", category === entry ? "border-foreground bg-foreground text-background" : "border-border/60 bg-background/40 hover:bg-accent")}>{entry}</button>)}
         </div>
       </Section>
 
       <Section step={4} title="Memory">
-        <div role="radiogroup" aria-label="Memory" className="grid gap-2 sm:grid-cols-2">
-          {memoryOptions.map(({ value, title, body, icon: Icon }) => <button key={value} type="button" role="radio" aria-checked={memory === value} disabled={saving} onClick={() => setMemory(value)} className={cn("motion-control relative flex gap-3 rounded-3xl border p-3 text-left transition-colors", memory === value ? "border-foreground bg-secondary" : "border-border hover:bg-accent")}>
-            <Icon className="mt-0.5 size-5 shrink-0" />
-            <span className="min-w-0"><span className="block text-sm font-medium">{title}</span><span className="block text-xs leading-snug text-muted-foreground">{body}</span></span>
+        <div role="radiogroup" aria-label="Memory" className="grid grid-cols-2 gap-2">
+          {memoryOptions.map(({ value, title, body, icon: Icon }) => <button key={value} type="button" role="radio" aria-checked={memory === value} disabled={saving} onClick={() => setMemory(value)} className={cn("motion-control relative flex gap-2 rounded-3xl border p-3 text-left transition-colors", memory === value ? "border-foreground bg-secondary/70" : "border-border/60 bg-background/40 hover:bg-accent")}>
+            <Icon className="mt-0.5 size-4 shrink-0" />
+            <span className="min-w-0"><span className="block pr-4 text-[13px] font-medium">{title}</span><span className="block text-[11px] leading-snug text-muted-foreground">{body}</span></span>
             {memory === value && <Check className="absolute right-3 top-3 size-4" />}
           </button>)}
         </div>
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-lg gap-2">
-          <Button type="button" variant="ghost" className="h-11 flex-1 rounded-full" disabled={saving} onClick={() => navigate(back)}>Cancel</Button>
-          <Button type="submit" className="h-11 flex-[2] rounded-full" disabled={!ready || saving}><Plus />{saving ? "Creating…" : "Create project"}</Button>
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="motion-reveal pointer-events-auto mx-auto flex max-w-lg gap-2 rounded-full border border-border/60 bg-card/50 p-1.5 shadow-2xl shadow-background/60 backdrop-blur-2xl">
+          <Button type="button" variant="ghost" className="h-10 flex-1 rounded-full" disabled={saving} onClick={() => navigate(back)}>Cancel</Button>
+          <Button type="submit" className="h-10 flex-[2] rounded-full" disabled={!ready || saving}><Plus />{saving ? "Creating…" : "Create project"}</Button>
         </div>
       </div>
     </form>
