@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup, waitFor, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { requestSearch } from "@/lib/navigation-motion";
 
 const mocks = vi.hoisted(() => ({ navigate: vi.fn(), rename: vi.fn(), remove: vi.fn() }));
 vi.mock("@/lib/router-compat", () => ({ useNavigate: () => mocks.navigate }));
