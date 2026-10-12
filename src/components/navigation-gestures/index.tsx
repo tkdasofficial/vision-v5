@@ -164,6 +164,8 @@ export default function NavigationGestures() {
             return;
           }
         }
+        // Horizontally scrollable rows (e.g. Search filter chips) keep their scroll; the page must not close.
+        if (gesture.kind === "drawer" && scrollsX(target.current, dx)) { drag.current = null; return; }
         if (gesture.kind === "pending") {
           // Only content that can still scroll in the swipe's direction keeps the swipe.
           const action = Math.abs(dy) * 1.2 >= Math.abs(dx) || scrollsX(target.current, dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
