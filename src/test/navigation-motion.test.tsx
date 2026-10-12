@@ -59,4 +59,14 @@ describe("persistent drawer", () => {
     expect(composer).toHaveValue("Keep my draft");
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
+  it("closes the overlay on back intent without triggering a second navigation", () => {
+    document.documentElement.classList.add("reduce-motion");
+    render(<NavigationGestures />);
+    act(() => { requestDrawer(); });
+    let accepted = true;
+    act(() => { accepted = document.dispatchEvent(new CustomEvent("vision:open-drawer:back", { cancelable: true })); });
+    expect(accepted).toBe(false);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
 });

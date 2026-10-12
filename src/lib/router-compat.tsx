@@ -1,7 +1,7 @@
 // Thin adapter so pages ported from the original app keep their simple
 // navigation calls while running on TanStack Router.
 import { useCallback, useEffect } from "react";
-import { consumeClickDirection, requestDrawer, type NavigationDirection } from "@/lib/navigation-motion";
+import { consumeClickDirection, requestDrawer, DRAWER_EVENT, type NavigationDirection } from "@/lib/navigation-motion";
 import {
   Outlet,
   useNavigate as useTsNavigate,
@@ -18,6 +18,7 @@ export function useNavigate() {
   // Stable identity so effects that depend on navigate don't re-run every render.
   return useCallback((to: string | number, opts?: NavOpts) => {
     if (typeof to === "number") {
+      if (typeof document !== "undefined" && !document.dispatchEvent(new CustomEvent(`${DRAWER_EVENT}:back`, { cancelable: true }))) return;
       if (to < 0) router.history.go(to);
       return;
     }

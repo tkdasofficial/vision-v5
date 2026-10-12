@@ -68,6 +68,11 @@ export default function NavigationGestures() {
       if (!current.current.enabled || current.current.directDrawer) return;
       event.preventDefault(); settleRef.current(true);
     };
+    const back = (event: Event) => {
+      if (!opened.current) return;
+      event.preventDefault(); settleRef.current(false);
+    };
+    const historyBack = () => { if (opened.current) settleRef.current(false); };
     const down = (event: PointerEvent) => {
       if (!current.current.enabled || event.pointerType !== "touch" || !event.isPrimary || drag.current) return;
       if (document.querySelector("[role='dialog']:not([data-navigation-drawer]), [role='alertdialog'], [role='menu'][data-state='open']")) return;
@@ -137,6 +142,8 @@ export default function NavigationGestures() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     media.addEventListener("change", preference);
     document.addEventListener(DRAWER_EVENT, open);
+    document.addEventListener(`${DRAWER_EVENT}:back`, back);
+    window.addEventListener("popstate", historyBack);
     document.addEventListener("pointerdown", down, true);
     document.addEventListener("pointermove", move, { capture: true, passive: false });
     document.addEventListener("pointerup", release, true);
@@ -145,6 +152,8 @@ export default function NavigationGestures() {
     return () => {
       cancelAnimationFrame(frame.current);
       document.removeEventListener(DRAWER_EVENT, open);
+      document.removeEventListener(`${DRAWER_EVENT}:back`, back);
+      window.removeEventListener("popstate", historyBack);
       document.removeEventListener("pointerdown", down, true);
       document.removeEventListener("pointermove", move, true);
       document.removeEventListener("pointerup", release, true);
