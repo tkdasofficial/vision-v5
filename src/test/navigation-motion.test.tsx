@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
-import { drawerProgress, settleDrawer, springStep, requestDrawer, setClickDirection, consumeClickDirection } from "@/lib/navigation-motion";
+import { drawerProgress, settleDrawer, springStep, requestDrawer, requestSearch, setClickDirection, consumeClickDirection } from "@/lib/navigation-motion";
 import { pageTransitionTypes } from "@/lib/app-motion";
 
 const mocks = vi.hoisted(() => ({ navigate: vi.fn(), canGoBack: vi.fn(() => true) }));
@@ -67,6 +67,14 @@ describe("persistent drawer", () => {
     act(() => { accepted = document.dispatchEvent(new CustomEvent("vision:open-drawer:back", { cancelable: true })); });
     expect(accepted).toBe(false);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+  it("morphs the open drawer into Search on a pull-down request", () => {
+    document.documentElement.classList.add("reduce-motion");
+    render(<NavigationGestures />);
+    act(() => { requestDrawer(); });
+    act(() => { expect(requestSearch()).toBe(true); });
+    expect(screen.getByRole("searchbox", { name: "Search anything" })).toBeInTheDocument();
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 });
