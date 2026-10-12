@@ -81,6 +81,13 @@
 }
 
 :root {
+    --motion-fast: 160ms;
+    --motion-window: 260ms;
+    --motion-page: 360ms;
+    --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --motion-exit: cubic-bezier(0.4, 0, 1, 1);
+    --page-enter-x: 12%;
+    --page-exit-x: -5%;
     --settings-canvas: 0 0% 94%;
     --settings-surface: 0 0% 99%;
     --settings-divider: 0 0% 94%;
@@ -260,6 +267,43 @@
 }
 
 /* Smooth scrollbar */
+/* Snapshot motion never transforms the live app or remounts its active chat. */
+html:active-view-transition-type(page-back) { --page-enter-x: -12%; --page-exit-x: 5%; }
+::view-transition-group(root) { animation-duration: var(--motion-page); animation-timing-function: var(--motion-ease); }
+::view-transition-old(root) { animation: page-carousel-out var(--motion-page) var(--motion-ease) both; }
+::view-transition-new(root) { animation: page-carousel-in var(--motion-page) var(--motion-ease) both; }
+::view-transition { pointer-events: none; }
+@keyframes page-carousel-in {
+  from { opacity: 0; transform: translateX(var(--page-enter-x)) scale(0.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes page-carousel-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(var(--page-exit-x)) scale(0.985); }
+}
+.motion-window[data-state=open] { animation: window-reveal var(--motion-window) var(--motion-ease) both; }
+.motion-window[data-state=closed] { animation: window-dismiss var(--motion-fast) var(--motion-exit) both; }
+@keyframes window-reveal { from { opacity: 0; scale: 0.96; } to { opacity: 1; scale: 1; } }
+@keyframes window-dismiss { from { opacity: 1; scale: 1; } to { opacity: 0; scale: 0.98; } }
+.motion-overlay[data-state=open] { animation: fade-in var(--motion-window) ease-out both; }
+.motion-overlay[data-state=closed] { animation: fade-in var(--motion-fast) ease-in reverse both; }
+.motion-sheet[data-state=open] { animation-duration: var(--motion-page); animation-timing-function: var(--motion-ease); }
+.motion-sheet[data-state=closed] { animation-duration: var(--motion-window); animation-timing-function: var(--motion-exit); }
+.motion-popover { animation-duration: var(--motion-window); animation-timing-function: var(--motion-ease); }
+.motion-popover[data-state=closed] { animation-duration: var(--motion-fast); }
+button:not(:disabled):not([aria-disabled=true]):not([data-motion=off]):active { scale: 0.97; }
+button { transition-property: color, background-color, border-color, opacity, box-shadow, scale; transition-duration: var(--motion-fast); transition-timing-function: var(--motion-ease); }
+@media (hover: hover) {
+  .motion-control:not(:disabled):not([aria-disabled=true]):not([data-motion=off]):hover:not(:active) { scale: 1.015; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  button:active, .motion-control:hover { scale: none !important; }
+  ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+}
+:root.reduce-motion button:active, :root.reduce-motion .motion-control:hover { scale: none !important; }
+:root.reduce-motion::view-transition-group(root), :root.reduce-motion::view-transition-old(root), :root.reduce-motion::view-transition-new(root) { animation: none !important; }
+
 .creation-reference-strip {
   display: flex;
   gap: 12px;
