@@ -5,7 +5,7 @@ workers_dev = true
 
 [vars]
 # Exact origins the gateway may send users back to (comma-separated).
-ALLOWED_RETURN_ORIGINS = "https://id-preview--fb416033-5a37-4f83-867e-9eacd553a8de.lovable.app,https://project--fb416033-5a37-4f83-867e-9eacd553a8de-dev.lovable.app,https://project--fb416033-5a37-4f83-867e-9eacd553a8de.lovable.app,https://fb416033-5a37-4f83-867e-9eacd553a8de.lovableproject.com,http://localhost:8080"
+ALLOWED_RETURN_ORIGINS = "https://id-preview--320900a1-fc2b-4cad-ad02-9f2fe4ba7bc2.lovable.app,https://project--320900a1-fc2b-4cad-ad02-9f2fe4ba7bc2-dev.lovable.app,https://project--320900a1-fc2b-4cad-ad02-9f2fe4ba7bc2.lovable.app,https://320900a1-fc2b-4cad-ad02-9f2fe4ba7bc2.lovableproject.com,http://localhost:8080"
 
 # Secrets (set with `wrangler secret put`, never committed):
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
