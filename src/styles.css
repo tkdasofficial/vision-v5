@@ -294,14 +294,14 @@ html:active-view-transition-type(page-back) { --page-enter-x: -12%; --page-exit-
 button:not(:disabled):not([aria-disabled=true]):not([data-motion=off]):active { scale: 0.97; }
 button { transition-property: color, background-color, border-color, opacity, box-shadow, scale; transition-duration: var(--motion-fast); transition-timing-function: var(--motion-ease); }
 @media (hover: hover) {
-  button:not(:disabled):not([data-motion=off]):hover > svg { transition: rotate var(--motion-fast) var(--motion-ease); }
+  .motion-control:not(:disabled):not([aria-disabled=true]):not([data-motion=off]):hover:not(:active) { scale: 1.015; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
-  button:active { scale: none; }
+  button:active, .motion-control:hover { scale: none !important; }
   ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
-:root.reduce-motion button:active { scale: none; }
+:root.reduce-motion button:active, :root.reduce-motion .motion-control:hover { scale: none !important; }
 :root.reduce-motion::view-transition-group(root), :root.reduce-motion::view-transition-old(root), :root.reduce-motion::view-transition-new(root) { animation: none !important; }
 
 .creation-reference-strip {
