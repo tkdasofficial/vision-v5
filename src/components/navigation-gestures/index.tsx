@@ -41,6 +41,8 @@ export default function NavigationGestures() {
   const directDrawer = location.pathname === "/drawer";
   const [visible, setVisible] = useState(false);
   const [drawerSearch, setDrawerSearch] = useState(false);
+  // Pull-down from Chat opens Search over Chat; its back button returns to Chat, not the drawer.
+  const [searchFromChat, setSearchFromChat] = useState(false);
   const [side, setSide] = useState<"left" | "right">("left");
   const sideRef = useRef<"left" | "right">("left");
   const layer = useRef<HTMLDivElement>(null);
