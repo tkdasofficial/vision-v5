@@ -7,7 +7,7 @@ import AppDrawerView from "@/components/app-drawer";
 import Projects from "@/pages/projects";
 import { isMotionReduced } from "@/lib/app-motion";
 import { classifyRoute, safeReturnPath } from "@/lib/route-access";
-import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, requestSearch, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
+import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, requestProjectsSearch, requestSearch, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
 
 type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back" | "pending" | "projects" | "to-chat" | "to-drawer"; active: boolean };
 
@@ -126,6 +126,7 @@ export default function NavigationGestures() {
       const field = event.target.closest("input, textarea, select, [contenteditable=true]");
       if (field && field === document.activeElement) return;
       if (event.target.closest("[role=slider], [data-navigation-gesture=off]")) return;
+      target.current = event.target;
       const edge = event.clientX <= 24;
       const drawer = opened.current || current.current.directDrawer;
       if (!drawer && gestureSurface(current.current.location.pathname) !== "other") {
@@ -151,14 +152,19 @@ export default function NavigationGestures() {
       const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
       if (!gesture.active) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
-        // Pull down (top→down) on Chat opens Search; inside the drawer it morphs the drawer into Search.
+        // The touched Projects view owns pull-down search, even while layered over Chat.
         if (dy > 0 && dy >= Math.abs(dx) * 1.2 && !scrollsUp(event.target instanceof Element ? event.target : target.current)) {
+          if (target.current?.closest("[data-projects-search]")) {
+            drag.current = null;
+            if (requestProjectsSearch(target.current)) { event.preventDefault(); suppressClick.current = true; }
+            return;
+          }
           if (gesture.kind === "pending" && gestureSurface(current.current.location.pathname) === "chat") {
             drag.current = null; suppressClick.current = true;
             setDrawerSearch(true); setSearchFromChat(true); settleRef.current(true, 0, "left");
             return;
           }
-          if (gesture.kind === "drawer" && (opened.current || current.current.directDrawer)) {
+          if (gesture.kind === "drawer" && ((opened.current && sideRef.current === "left") || current.current.directDrawer)) {
             drag.current = null; suppressClick.current = true;
             requestSearch();
             return;

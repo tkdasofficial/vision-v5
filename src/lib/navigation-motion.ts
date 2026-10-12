@@ -32,6 +32,12 @@ export function consumeClickDirection() {
 }
 export const PROJECTS_EVENT = "vision:open-projects";
 export const DRAWER_SEARCH_EVENT = "vision:open-search";
+export const PROJECTS_SEARCH_EVENT = "vision:open-projects-search";
+/** Targets only the Projects view under the finger, including its overlay over Chat. */
+export function requestProjectsSearch(start: Element | null): boolean {
+  const page = start?.closest("[data-projects-search]");
+  return page ? !page.dispatchEvent(new CustomEvent(PROJECTS_SEARCH_EVENT, { cancelable: true })) : false;
+}
 /** Asks the open App Drawer to morph into Search; false when no drawer handled it. */
 export function requestSearch(): boolean {
   if (typeof document === "undefined") return false;

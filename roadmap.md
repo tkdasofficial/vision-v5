@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Replace Projects Search button with plus and scope pull-down search to Projects; 23 tests pass for routed/overlay gestures, scrolling and filtering. Signed-in browser verification is blocked by the preview session check.
 - [x] Add edge-drag drawer, spring settling and centralized directional navigation/back gestures; 77 tests pass. Chromium touch fixture confirms finger tracking, reverse close, retained draft and one swipe-back call without errors. Signed-in end-to-end verification remains unavailable without a custom-auth session.
 - [x] Add carousel/parallax navigation, smooth windows/menus, hover lift and tap bounce; 66 tests pass, public-page navigation/back/rapid clicks and shared window open/close verified with no browser errors; reduced motion disables bounce and transitions. Signed-in workspace motion remains unverified without a custom-auth session.
 - [x] Separate project/default chats, preserve creation-time ordering on transfers, and show a centered 12-character project name with project-only menu and no Incognito. Signed-in browser verification confirms saved/draft headers and transfers; regression tests pass.
