@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, MessageSquare, Pencil, Pin, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChatHistory } from "@/context/ChatHistoryContext";
@@ -20,7 +20,23 @@ type Props = {
 export default function AppDrawerView({ onClose, onNewChat, onSelectChat, activeChatId, initialSearch = false }: Props & { initialSearch?: boolean }) {
   const { history, renameChat } = useChatHistory();
   const [searching, setSearching] = useState(initialSearch);
+  // Drawer content stays mounted during the morph so its exit animation is visible.
+  const [drawerVisible, setDrawerVisible] = useState(!initialSearch);
+  const morphTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const openSearch = () => {
+    setScrolled(false);
+    setSearching(true);
+    if (morphTimer.current) clearTimeout(morphTimer.current);
+    morphTimer.current = setTimeout(() => setDrawerVisible(false), 280);
+  };
+  const closeSearch = () => {
+    if (morphTimer.current) clearTimeout(morphTimer.current);
+    setDrawerVisible(true);
+    setScrolled(false);
+    setSearching(false);
+  };
+  useEffect(() => () => { if (morphTimer.current) clearTimeout(morphTimer.current); }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const chats = recentChats(history);
