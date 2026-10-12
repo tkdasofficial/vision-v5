@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recentChats, projectChats, projectChatTitle } from "./recent-chats";
+import { recentChats, projectChats } from "./recent-chats";
 describe("recentChats", () => {
   it("hides chats that belong to a project", () => {
     expect(recentChats([{ id: "a", projectId: "p1" }, { id: "b" }]).map((c) => c.id)).toEqual(["b"]);
@@ -20,10 +20,5 @@ describe("recentChats", () => {
   });
   it("keeps pinned project chats ahead of newer unpinned chats", () => {
     expect(projectChats([{ id: "new", projectId: "p1", createdAt: 300 }, { id: "pinned", projectId: "p1", createdAt: 100, pinned: true }], "p1").map((c) => c.id)).toEqual(["pinned", "new"]);
-  });
-  it("limits project names to 12 characters followed by three dots", () => {
-    expect(projectChatTitle("abcdefghijklmnop")).toBe("abcdefghijkl...");
-    expect(projectChatTitle("abcdefghijkl")).toBe("abcdefghijkl");
-    expect(projectChatTitle("😀".repeat(13))).toBe("😀".repeat(12) + "...");
   });
 });

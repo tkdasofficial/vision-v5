@@ -13,8 +13,3 @@ export function recentChats<T extends ChatPlacement>(chats: T[]): T[] {
 export function projectChats<T extends ChatPlacement>(chats: T[], projectId: string): T[] {
   return orderedChats(chats.filter((c) => c.projectId === projectId));
 }
-
-export function projectChatTitle(name: string): string {
-  const characters = Array.from(name);
-  return characters.length > 12 ? characters.slice(0, 12).join("") + "..." : name;
-}
