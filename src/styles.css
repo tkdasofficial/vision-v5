@@ -133,7 +133,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --settings-canvas: 0 0% 12%;
+    --settings-canvas: 0 0% 3.1%; /* #080808 — same black as the rest of the app */
     --settings-surface: 0 0% 5%;
     --settings-divider: 0 0% 12%;
     --drawer-glass: oklch(0.2 0 0 / 0.76);
@@ -176,7 +176,7 @@
   }
 }
 :root.dark {
-    --settings-canvas: 0 0% 12%;
+    --settings-canvas: 0 0% 3.1%; /* #080808 — same black as the rest of the app */
     --settings-surface: 0 0% 5%;
     --settings-divider: 0 0% 12%;
     --drawer-glass: oklch(0.2 0 0 / 0.76);
