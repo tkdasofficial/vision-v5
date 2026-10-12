@@ -5,8 +5,8 @@ import { useNavigate } from "@/lib/router-compat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { PageMenuItem } from "@/components/page-header";
 
-export default function FloatingWorkspacePage({ title, displayTitle, children, actions, query, onQueryChange, menu, footer, backTo = "/drawer" }: {
-  title: string; displayTitle?: string; children: ReactNode; actions?: ReactNode; query: string; onQueryChange: (value: string) => void; menu?: PageMenuItem[]; backTo?: string; footer?: ReactNode;
+export default function FloatingWorkspacePage({ title, displayTitle, children, actions, query, onQueryChange, menu, footer, backTo = "/drawer", onBack }: {
+  title: string; displayTitle?: string; children: ReactNode; actions?: ReactNode; query: string; onQueryChange: (value: string) => void; menu?: PageMenuItem[]; backTo?: string; footer?: ReactNode; onBack?: () => void;
 }) {
   const navigate = useNavigate();
   const [searching, setSearching] = useState(false);
@@ -14,7 +14,7 @@ export default function FloatingWorkspacePage({ title, displayTitle, children, a
   return <div className="app-drawer relative grid h-[100dvh] grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-settings-canvas text-foreground" data-scrolled={scrolled}>
     <header className="drawer-top pointer-events-none relative z-10 col-start-1 row-start-1 self-start px-4 pb-5 pt-[max(12px,env(safe-area-inset-top))] sm:px-8">
       <div className={`pointer-events-auto mx-auto grid h-11 max-w-4xl items-center gap-2 ${searching ? "grid-cols-[44px_minmax(0,1fr)]" : "grid-cols-[1fr_auto_1fr]"}`}>
-        <Button variant="floating" size="icon" className="size-11 justify-self-start rounded-full" aria-label={searching ? `Back to ${title}` : backTo === "/drawer" ? "Back to drawer" : "Back"} title="Back" onClick={() => { if (searching) { setSearching(false); onQueryChange(""); } else navigate(backTo); }}><ArrowLeft className="size-5" /></Button>
+        <Button variant="floating" size="icon" className="size-11 justify-self-start rounded-full" aria-label={searching ? `Back to ${title}` : backTo === "/drawer" ? "Back to drawer" : "Back"} title="Back" onClick={() => { if (searching) { setSearching(false); onQueryChange(""); } else if (onBack) onBack(); else navigate(backTo); }}><ArrowLeft className="size-5" /></Button>
         {searching ? <div className="relative min-w-0">
           <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-muted-foreground" />
           <input autoFocus type="search" value={query} onChange={(e) => onQueryChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { setSearching(false); onQueryChange(""); } }} aria-label={`Search ${title.toLowerCase()}`} placeholder={`Search ${title.toLowerCase()}`} className="drawer-floating h-11 w-full rounded-full pl-12 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden" />

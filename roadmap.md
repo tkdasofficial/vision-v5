@@ -31,3 +31,4 @@
 - [x] Old inset sidebar divider removed as part of the requested AppDrawer refinement.
 
 - [x] Gesture flow: Chat swipes (drawer/Projects), drawer pages close to drawer, Projects removed from drawer, first-run tutorial + /guide
+- [x] Drawer pages close to Chat (no reopening recent page); Projects as swipe/tap panel from the right
