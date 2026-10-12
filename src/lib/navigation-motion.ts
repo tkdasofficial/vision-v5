@@ -31,6 +31,12 @@ export function consumeClickDirection() {
   return direction;
 }
 export const PROJECTS_EVENT = "vision:open-projects";
+export const DRAWER_SEARCH_EVENT = "vision:open-search";
+/** Asks the open App Drawer to morph into Search; false when no drawer handled it. */
+export function requestSearch(): boolean {
+  if (typeof document === "undefined") return false;
+  return !document.dispatchEvent(new CustomEvent(DRAWER_SEARCH_EVENT, { cancelable: true }));
+}
 /** Opens the Projects panel over Chat; false when no Chat screen handled it. */
 export function requestProjects(): boolean {
   if (typeof document === "undefined") return false;

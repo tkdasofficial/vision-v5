@@ -7,7 +7,7 @@ import AppDrawerView from "@/components/app-drawer";
 import Projects from "@/pages/projects";
 import { isMotionReduced } from "@/lib/app-motion";
 import { classifyRoute, safeReturnPath } from "@/lib/route-access";
-import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
+import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, requestSearch, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
 
 type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back" | "pending" | "projects" | "to-chat" | "to-drawer"; active: boolean };
 
@@ -15,6 +15,13 @@ function scrollsX(start: Element | null, dx: number) {
   for (let node = start; node && node !== document.body; node = node.parentElement) {
     if (node.scrollWidth <= node.clientWidth + 2 || !/auto|scroll/.test(getComputedStyle(node).overflowX)) continue;
     if (dx > 0 ? node.scrollLeft > 1 : node.scrollLeft + node.clientWidth < node.scrollWidth - 1) return true;
+  }
+  return false;
+}
+/** True when the touched content can still scroll up, so a pull-down there means "scroll", not "search". */
+function scrollsUp(start: Element | null) {
+  for (let node = start; node && node !== document.body; node = node.parentElement) {
+    if (node.scrollHeight > node.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollTop > 1) return true;
   }
   return false;
 }
@@ -33,6 +40,7 @@ export default function NavigationGestures() {
   const enabled = Boolean(user) && classifyRoute(location.pathname) === "protected" && !location.pathname.startsWith("/admin");
   const directDrawer = location.pathname === "/drawer";
   const [visible, setVisible] = useState(false);
+  const [drawerSearch, setDrawerSearch] = useState(false);
   const [side, setSide] = useState<"left" | "right">("left");
   const sideRef = useRef<"left" | "right">("left");
   const layer = useRef<HTMLDivElement>(null);
@@ -57,7 +65,7 @@ export default function NavigationGestures() {
     opened.current = true;
     setVisible(true);
   };
-  const dismiss = () => { opened.current = false; setVisible(false); paint(0); };
+  const dismiss = () => { opened.current = false; setVisible(false); setDrawerSearch(false); paint(0); };
   const settle = (open: boolean, initialVelocity = 0, to?: "left" | "right") => {
     cancelAnimationFrame(frame.current);
     if (open) show(to);
@@ -141,6 +149,19 @@ export default function NavigationGestures() {
       const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
       if (!gesture.active) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
+        // Pull down (top→down) on Chat opens Search; inside the drawer it morphs the drawer into Search.
+        if (dy > 0 && dy >= Math.abs(dx) * 1.2 && !scrollsUp(event.target instanceof Element ? event.target : target.current)) {
+          if (gesture.kind === "pending" && gestureSurface(current.current.location.pathname) === "chat") {
+            drag.current = null; suppressClick.current = true;
+            setDrawerSearch(true); settleRef.current(true, 0, "left");
+            return;
+          }
+          if (gesture.kind === "drawer" && (opened.current || current.current.directDrawer)) {
+            drag.current = null; suppressClick.current = true;
+            requestSearch();
+            return;
+          }
+        }
         if (gesture.kind === "pending") {
           // Only content that can still scroll in the swipe's direction keeps the swipe.
           const action = Math.abs(dy) * 1.2 >= Math.abs(dx) || scrollsX(target.current, dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
@@ -236,7 +257,7 @@ export default function NavigationGestures() {
         <Dialog.Overlay className="navigation-drawer-scrim" />
         <Dialog.Content className="navigation-drawer-panel" data-side={side} data-navigation-drawer aria-describedby={undefined} onOpenAutoFocus={(event) => event.preventDefault()} onCloseAutoFocus={(event) => { event.preventDefault(); if (lastFocus.current?.isConnected) lastFocus.current.focus({ preventScroll: true }); }}>
           <Dialog.Title className="sr-only">{side === "right" ? "Projects" : "Workspace navigation"}</Dialog.Title>
-          {side === "right" ? <Projects onClose={() => settleRef.current(false)} /> : <AppDrawerView activeChatId={location.pathname.match(/^\/chat\/([^/]+)$/)?.[1]} onClose={() => settleRef.current(false)} onNewChat={() => { settleRef.current(false); navigate("/chat"); }} onSelectChat={(id) => { settleRef.current(false); navigate(`/chat/${id}`); }} />}
+          {side === "right" ? <Projects onClose={() => settleRef.current(false)} /> : <AppDrawerView initialSearch={drawerSearch} activeChatId={location.pathname.match(/^\/chat\/([^/]+)$/)?.[1]} onClose={() => settleRef.current(false)} onNewChat={() => { settleRef.current(false); navigate("/chat"); }} onSelectChat={(id) => { settleRef.current(false); navigate(`/chat/${id}`); }} />}
         </Dialog.Content>
       </div></Dialog.Portal>}
     </Dialog.Root>
