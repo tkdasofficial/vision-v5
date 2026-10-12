@@ -18,7 +18,7 @@ type Props = {
 };
 
 /** Shared full-screen navigation surface, also used by the preserved /search URL. */
-export default function AppDrawerView({ onClose, onNewChat, onSelectChat, activeChatId, initialSearch = false }: Props & { initialSearch?: boolean }) {
+export default function AppDrawerView({ onClose, onNewChat, onSelectChat, activeChatId, initialSearch = false, onSearchBack }: Props & { initialSearch?: boolean; onSearchBack?: () => void }) {
   const { history, renameChat } = useChatHistory();
   const [searching, setSearching] = useState(initialSearch);
   // Drawer content stays mounted during the morph so its exit animation is visible.
@@ -66,7 +66,7 @@ export default function AppDrawerView({ onClose, onNewChat, onSelectChat, active
       </div>
     </header>}
 
-    {searching && <div className="drawer-pane-in absolute inset-0 z-20 flex flex-col"><WorkspaceSearch topSearch onBack={closeSearch} onScrollChange={setScrolled} /></div>}
+    {searching && <div className="drawer-pane-in absolute inset-0 z-20 flex flex-col"><WorkspaceSearch topSearch onBack={onSearchBack ?? closeSearch} onScrollChange={setScrolled} /></div>}
     {drawerVisible && <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-[max(84px,calc(env(safe-area-inset-top)+72px))] sm:px-8", searching ? "drawer-pane-out" : "drawer-pane-in")} onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 8)}>
       <div className="mx-auto max-w-4xl">
         <SidebarFeatures />
