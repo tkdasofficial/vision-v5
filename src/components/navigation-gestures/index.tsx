@@ -149,6 +149,19 @@ export default function NavigationGestures() {
       const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
       if (!gesture.active) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
+        // Pull down (top→down) on Chat opens Search; inside the drawer it morphs the drawer into Search.
+        if (dy > 0 && dy >= Math.abs(dx) * 1.2 && !scrollsUp(event.target instanceof Element ? event.target : target.current)) {
+          if (gesture.kind === "pending" && gestureSurface(current.current.location.pathname) === "chat") {
+            drag.current = null; suppressClick.current = true;
+            setDrawerSearch(true); settleRef.current(true, 0, "left");
+            return;
+          }
+          if (gesture.kind === "drawer" && (opened.current || current.current.directDrawer)) {
+            drag.current = null; suppressClick.current = true;
+            requestSearch();
+            return;
+          }
+        }
         if (gesture.kind === "pending") {
           // Only content that can still scroll in the swipe's direction keeps the swipe.
           const action = Math.abs(dy) * 1.2 >= Math.abs(dx) || scrollsX(target.current, dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
@@ -244,7 +257,7 @@ export default function NavigationGestures() {
         <Dialog.Overlay className="navigation-drawer-scrim" />
         <Dialog.Content className="navigation-drawer-panel" data-side={side} data-navigation-drawer aria-describedby={undefined} onOpenAutoFocus={(event) => event.preventDefault()} onCloseAutoFocus={(event) => { event.preventDefault(); if (lastFocus.current?.isConnected) lastFocus.current.focus({ preventScroll: true }); }}>
           <Dialog.Title className="sr-only">{side === "right" ? "Projects" : "Workspace navigation"}</Dialog.Title>
-          {side === "right" ? <Projects onClose={() => settleRef.current(false)} /> : <AppDrawerView activeChatId={location.pathname.match(/^\/chat\/([^/]+)$/)?.[1]} onClose={() => settleRef.current(false)} onNewChat={() => { settleRef.current(false); navigate("/chat"); }} onSelectChat={(id) => { settleRef.current(false); navigate(`/chat/${id}`); }} />}
+          {side === "right" ? <Projects onClose={() => settleRef.current(false)} /> : <AppDrawerView initialSearch={drawerSearch} activeChatId={location.pathname.match(/^\/chat\/([^/]+)$/)?.[1]} onClose={() => settleRef.current(false)} onNewChat={() => { settleRef.current(false); navigate("/chat"); }} onSelectChat={(id) => { settleRef.current(false); navigate(`/chat/${id}`); }} />}
         </Dialog.Content>
       </div></Dialog.Portal>}
     </Dialog.Root>
