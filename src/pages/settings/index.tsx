@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from "react";
-import { Palette, Languages, Sparkles, MessagesSquare, Database, ShieldCheck, PersonStanding, Bell, Info, User, Inbox, Crown, LayoutDashboard, HelpCircle, LifeBuoy, LogOut, ChevronRight, Pencil, ArrowLeft, Loader2 } from "lucide-react";
+import { Palette, Languages, Sparkles, MessagesSquare, Database, ShieldCheck, PersonStanding, Bell, Info, User, Inbox, Crown, LayoutDashboard, HelpCircle, LifeBuoy, BookOpen, LogOut, ChevronRight, Pencil, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "@/lib/router-compat";
@@ -53,6 +53,7 @@ export default function SettingsDirectory() {
     ...(isAdmin ? [{ to: "/admin/dashboard", icon: LayoutDashboard, title: "Admin Panel" }] : []),
   ];
   const help: Row[] = [
+    { to: "/guide", icon: BookOpen, title: "App Guide" },
     { to: "/support", icon: LifeBuoy, title: "Support" },
     { to: "/help/faq", icon: HelpCircle, title: "FAQ" },
     { to: "/settings/about", icon: Info, title: "About Vision" },
