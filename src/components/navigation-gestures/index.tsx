@@ -40,6 +40,7 @@ export default function NavigationGestures() {
   const enabled = Boolean(user) && classifyRoute(location.pathname) === "protected" && !location.pathname.startsWith("/admin");
   const directDrawer = location.pathname === "/drawer";
   const [visible, setVisible] = useState(false);
+  const [drawerSearch, setDrawerSearch] = useState(false);
   const [side, setSide] = useState<"left" | "right">("left");
   const sideRef = useRef<"left" | "right">("left");
   const layer = useRef<HTMLDivElement>(null);
@@ -64,7 +65,7 @@ export default function NavigationGestures() {
     opened.current = true;
     setVisible(true);
   };
-  const dismiss = () => { opened.current = false; setVisible(false); paint(0); };
+  const dismiss = () => { opened.current = false; setVisible(false); setDrawerSearch(false); paint(0); };
   const settle = (open: boolean, initialVelocity = 0, to?: "left" | "right") => {
     cancelAnimationFrame(frame.current);
     if (open) show(to);
