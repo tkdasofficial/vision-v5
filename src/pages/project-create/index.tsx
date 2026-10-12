@@ -84,13 +84,13 @@ export default function ProjectCreate() {
 
       <Section step={2} title="Icon" hint="Optional">
         <div className={rowClass}>
-          {projectIcons.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)} className={cn("motion-control drawer-filter grid size-11 shrink-0 snap-start place-items-center rounded-full", icon === value && "border-transparent")} data-state={icon === value ? "active" : undefined}><Icon className="size-[18px]" /></button>)}
+          {projectIcons.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)} className={cn("motion-control drawer-filter grid size-11 shrink-0 place-items-center rounded-full", icon === value && "border-transparent")} data-state={icon === value ? "active" : undefined}><Icon className="size-[18px]" /></button>)}
         </div>
       </Section>
 
       <Section step={3} title="Category">
         <div role="radiogroup" aria-label="Category" className={rowClass}>
-          {projectCategories.map((entry) => <button key={entry} type="button" role="radio" aria-checked={category === entry} disabled={saving} onClick={() => setCategory(entry)} className="motion-control drawer-filter h-9 shrink-0 snap-start whitespace-nowrap rounded-full px-4 text-[13px]" data-state={category === entry ? "active" : undefined}>{entry}</button>)}
+          {projectCategories.map((entry) => <button key={entry} type="button" role="radio" aria-checked={category === entry} disabled={saving} onClick={() => setCategory(entry)} className="motion-control drawer-filter h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[13px]" data-state={category === entry ? "active" : undefined}>{entry}</button>)}
         </div>
       </Section>
 
