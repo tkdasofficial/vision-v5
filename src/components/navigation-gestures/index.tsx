@@ -4,9 +4,10 @@ import { useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import AppDrawerView from "@/components/app-drawer";
+import Projects from "@/pages/projects";
 import { isMotionReduced } from "@/lib/app-motion";
 import { classifyRoute, safeReturnPath } from "@/lib/route-access";
-import { DRAWER_EVENT, drawerProgress, gestureSurface, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
+import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
 
 type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back" | "pending" | "projects" | "to-chat" | "to-drawer"; active: boolean };
 
@@ -19,11 +20,13 @@ export default function NavigationGestures() {
   const enabled = Boolean(user) && classifyRoute(location.pathname) === "protected" && !location.pathname.startsWith("/admin");
   const directDrawer = location.pathname === "/drawer";
   const [visible, setVisible] = useState(false);
+  const [side, setSide] = useState<"left" | "right">("left");
+  const sideRef = useRef<"left" | "right">("left");
   const layer = useRef<HTMLDivElement>(null);
   const progress = useRef(0);
   const frame = useRef(0);
   const opened = useRef(false);
-  const settleRef = useRef<(open: boolean, velocity?: number) => void>(() => {});
+  const settleRef = useRef<(open: boolean, velocity?: number, to?: "left" | "right") => void>(() => {});
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
   const lastFocus = useRef<HTMLElement | null>(null);
@@ -33,16 +36,17 @@ export default function NavigationGestures() {
     progress.current = value;
     layer.current?.style.setProperty("--drawer-progress", String(value));
   };
-  const show = () => {
+  const show = (to: "left" | "right" = sideRef.current) => {
     if (opened.current) return;
+    sideRef.current = to; setSide(to);
     lastFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     opened.current = true;
     setVisible(true);
   };
   const dismiss = () => { opened.current = false; setVisible(false); paint(0); };
-  const settle = (open: boolean, initialVelocity = 0) => {
+  const settle = (open: boolean, initialVelocity = 0, to?: "left" | "right") => {
     cancelAnimationFrame(frame.current);
-    if (open) show();
+    if (open) show(to);
     const target = open ? 1 : 0;
     let velocity = initialVelocity;
     let previous = performance.now();
@@ -61,21 +65,29 @@ export default function NavigationGestures() {
     frame.current = requestAnimationFrame(tick);
   };
   settleRef.current = settle;
+  const sign = () => (sideRef.current === "right" ? -1 : 1);
 
   const previous = useRef<{ path: string; index?: number } | null>(null);
   useEffect(() => {
-    const state = location.state as { __TSR_index?: number; __visionOpenDrawer?: boolean } | undefined;
+    const state = location.state as { __TSR_index?: number; __visionOpenDrawer?: boolean; __visionOpenProjects?: boolean } | undefined;
     const prev = previous.current;
     previous.current = { path: location.pathname, index: state?.__TSR_index };
     cancelAnimationFrame(frame.current); drag.current = null; dismiss();
     // Closing Library/Plugins/Settings returns to the App Drawer, already open.
     const backFromDrawerPage = prev && gestureSurface(prev.path) === "drawer-page" && state?.__TSR_index !== undefined && prev.index !== undefined && state.__TSR_index < prev.index;
-    if (enabled && gestureSurface(location.pathname) === "chat" && (state?.__visionOpenDrawer || backFromDrawerPage)) { show(); paint(1); }
+    if (enabled && gestureSurface(location.pathname) === "chat" && (state?.__visionOpenDrawer || backFromDrawerPage)) { show("left"); paint(1); }
+    else if (enabled && gestureSurface(location.pathname) === "chat" && state?.__visionOpenProjects) { show("right"); paint(1); }
+    // A browser back from a drawer page drops the forward entry, so the closed page can't be swiped back open.
+    if (backFromDrawerPage && enabled) router.history.push(location.href, { ...(location.state as object), __visionOpenDrawer: true } as never);
   }, [location.pathname, location.searchStr]);
   useEffect(() => {
     const open = (event: Event) => {
       if (!current.current.enabled || current.current.directDrawer) return;
-      event.preventDefault(); settleRef.current(true);
+      event.preventDefault(); settleRef.current(true, 0, "left");
+    };
+    const openProjects = (event: Event) => {
+      if (!current.current.enabled || gestureSurface(current.current.location.pathname) !== "chat") return;
+      event.preventDefault(); settleRef.current(true, 0, "right");
     };
     const back = (event: Event) => {
       if (!opened.current) return;
@@ -118,15 +130,16 @@ export default function NavigationGestures() {
         if (gesture.kind === "pending") {
           const action = Math.abs(dy) >= Math.abs(dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
           if (!action) { drag.current = null; return; }
-          gesture.kind = action;
+          if (action === "drawer" || action === "projects") sideRef.current = action === "projects" ? "right" : "left";
+          gesture.kind = action === "projects" ? "drawer" : action;
         }
-        if (Math.abs(dy) >= Math.abs(dx) || (gesture.start === 0 && dx < 0 && (gesture.kind === "drawer" || gesture.kind === "back"))) {
+        if (Math.abs(dy) >= Math.abs(dx) || (gesture.start === 0 && (gesture.kind === "drawer" ? dx * sign() < 0 : gesture.kind === "back" && dx < 0))) {
           drag.current = null;
           if (opened.current) settleRef.current(gesture.start > 0.5);
           return;
         }
         gesture.active = true; suppressClick.current = true;
-        if (gesture.kind === "drawer" && !current.current.directDrawer) show();
+        if (gesture.kind === "drawer" && !current.current.directDrawer) show(sideRef.current);
       }
       event.preventDefault();
       const now = performance.now();
@@ -135,7 +148,7 @@ export default function NavigationGestures() {
       if (gesture.kind === "drawer") {
         const value = drawerProgress(gesture.start, dx, window.innerWidth);
         if (current.current.directDrawer) document.querySelector<HTMLElement>("[aria-label='App drawer']")?.style.setProperty("translate", `${(value - 1) * 100}% 0`);
-        else paint(value);
+        else paint(drawerProgress(gesture.start, dx * sign(), window.innerWidth));
       }
     };
     const release = (event: PointerEvent) => {
@@ -147,11 +160,9 @@ export default function NavigationGestures() {
       const dx = event.clientX - gesture.x;
       const commit = (sign: 1 | -1) => !cancelled && gesture.active && settleDrawer(drawerProgress(0, sign * dx, window.innerWidth), sign * gesture.velocity);
       const nav = current.current.navigate;
-      const canGoBack = current.current.router.history.canGoBack();
       if (gesture.kind === "pending") { /* never activated */ }
-      else if (gesture.kind === "projects") { if (commit(-1)) nav("/projects", { direction: "forward" }); }
-      else if (gesture.kind === "to-chat") { if (commit(1)) { if (canGoBack) nav(-1); else nav("/chat", { direction: "back", replace: true }); } }
-      else if (gesture.kind === "to-drawer") { if (commit(-1)) { if (canGoBack) nav(-1); else nav("/chat", { direction: "to-left", replace: true, state: { __visionOpenDrawer: true } }); } }
+      else if (gesture.kind === "to-chat") { if (commit(1)) nav(-1); }
+      else if (gesture.kind === "to-drawer") { if (commit(-1)) nav(-1); }
       else if (gesture.kind === "back") {
         if (!cancelled && gesture.active && settleDrawer(drawerProgress(0, event.clientX - gesture.x, window.innerWidth), gesture.velocity)) current.current.navigate(-1);
       } else if (current.current.directDrawer) {
@@ -161,7 +172,7 @@ export default function NavigationGestures() {
           const target = safeReturnPath(new URLSearchParams(current.current.location.searchStr).get("returnTo"));
           current.current.navigate(target.startsWith("/drawer") ? "/chat" : target, { direction: "back", replace: true });
         } else if (gesture.active && !isMotionReduced()) page?.animate([{ translate: `${(drawerProgress(1, gesture.lastX - gesture.x, window.innerWidth) - 1) * 100}% 0` }, { translate: "0% 0" }], { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
-      } else if (gesture.active || opened.current) settleRef.current(cancelled ? gesture.start > 0.5 : settleDrawer(progress.current, gesture.velocity), gesture.velocity);
+      } else if (gesture.active || opened.current) settleRef.current(cancelled ? gesture.start > 0.5 : settleDrawer(progress.current, gesture.velocity * sign()), gesture.velocity * sign());
       window.setTimeout(() => { suppressClick.current = false; }, 0);
     };
     const click = (event: MouseEvent) => {
@@ -174,6 +185,7 @@ export default function NavigationGestures() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     media.addEventListener("change", preference);
     document.addEventListener(DRAWER_EVENT, open);
+    document.addEventListener(PROJECTS_EVENT, openProjects);
     document.addEventListener(`${DRAWER_EVENT}:back`, back);
     window.addEventListener("popstate", historyBack);
     document.addEventListener("pointerdown", down, true);
@@ -184,6 +196,7 @@ export default function NavigationGestures() {
     return () => {
       cancelAnimationFrame(frame.current);
       document.removeEventListener(DRAWER_EVENT, open);
+      document.removeEventListener(PROJECTS_EVENT, openProjects);
       document.removeEventListener(`${DRAWER_EVENT}:back`, back);
       window.removeEventListener("popstate", historyBack);
       document.removeEventListener("pointerdown", down, true);
@@ -200,9 +213,9 @@ export default function NavigationGestures() {
     <Dialog.Root open={visible} onOpenChange={(open) => settleRef.current(open)}>
       {visible && <Dialog.Portal><div className="navigation-drawer" ref={(node) => { layer.current = node; node?.style.setProperty("--drawer-progress", String(progress.current)); }}>
         <Dialog.Overlay className="navigation-drawer-scrim" />
-        <Dialog.Content className="navigation-drawer-panel" data-navigation-drawer aria-describedby={undefined} onOpenAutoFocus={(event) => event.preventDefault()} onCloseAutoFocus={(event) => { event.preventDefault(); if (lastFocus.current?.isConnected) lastFocus.current.focus({ preventScroll: true }); }}>
-          <Dialog.Title className="sr-only">Workspace navigation</Dialog.Title>
-          <AppDrawerView activeChatId={location.pathname.match(/^\/chat\/([^/]+)$/)?.[1]} onClose={() => settleRef.current(false)} onNewChat={() => { settleRef.current(false); navigate("/chat"); }} onSelectChat={(id) => { settleRef.current(false); navigate(`/chat/${id}`); }} />
+        <Dialog.Content className="navigation-drawer-panel" data-side={side} data-navigation-drawer aria-describedby={undefined} onOpenAutoFocus={(event) => event.preventDefault()} onCloseAutoFocus={(event) => { event.preventDefault(); if (lastFocus.current?.isConnected) lastFocus.current.focus({ preventScroll: true }); }}>
+          <Dialog.Title className="sr-only">{side === "right" ? "Projects" : "Workspace navigation"}</Dialog.Title>
+          {side === "right" ? <Projects onClose={() => settleRef.current(false)} /> : <AppDrawerView activeChatId={location.pathname.match(/^\/chat\/([^/]+)$/)?.[1]} onClose={() => settleRef.current(false)} onNewChat={() => { settleRef.current(false); navigate("/chat"); }} onSelectChat={(id) => { settleRef.current(false); navigate(`/chat/${id}`); }} />}
         </Dialog.Content>
       </div></Dialog.Portal>}
     </Dialog.Root>

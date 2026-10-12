@@ -292,6 +292,7 @@ html:active-view-transition-type(page-to-left)::view-transition-new(root) { z-in
 .navigation-drawer { position: fixed; inset: 0; z-index: 45; }
 .navigation-drawer-scrim { position: absolute; inset: 0; background: var(--drawer-scrim); opacity: var(--drawer-progress, 0); }
 .navigation-drawer-panel { position: absolute; inset: 0; transform: translate3d(calc((var(--drawer-progress, 0) - 1) * 100%), 0, 0); will-change: transform; touch-action: pan-y; }
+.navigation-drawer-panel[data-side=right] { transform: translate3d(calc((1 - var(--drawer-progress, 0)) * 100%), 0, 0); }
 .navigation-edge { position: fixed; inset: 0 auto 0 0; width: 24px; z-index: 44; touch-action: pan-y; }
 .motion-window[data-state=open] { animation: window-reveal var(--motion-window) var(--motion-ease) both; }
 .motion-window[data-state=closed] { animation: window-dismiss var(--motion-fast) var(--motion-exit) both; }

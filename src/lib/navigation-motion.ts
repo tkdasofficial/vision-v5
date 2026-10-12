@@ -30,6 +30,20 @@ export function consumeClickDirection() {
   clickDirection = undefined;
   return direction;
 }
+export const PROJECTS_EVENT = "vision:open-projects";
+/** Opens the Projects panel over Chat; false when no Chat screen handled it. */
+export function requestProjects(): boolean {
+  if (typeof document === "undefined") return false;
+  return !document.dispatchEvent(new CustomEvent(PROJECTS_EVENT, { cancelable: true }));
+}
+/** Closing a drawer page or Projects lands on Chat and replaces the closed page, so no "recent page" can be reopened. */
+export function closeTarget(pathname: string, to: string | number): { state: Record<string, boolean>; direction: NavigationDirection } | null {
+  const surface = gestureSurface(pathname);
+  if (surface === "drawer-page" && (to === -1 || to === "/drawer")) return { state: { __visionOpenDrawer: true }, direction: "to-left" };
+  if (surface === "projects" && (to === -1 || to === "/drawer" || to === "/chat")) return { state: {}, direction: "back" };
+  if (/^\/projects\/[^/]+$/.test(pathname) && pathname !== "/projects/new" && to === "/projects") return { state: { __visionOpenProjects: true }, direction: "back" };
+  return null;
+}
 export function requestDrawer(): boolean {
   if (typeof document === "undefined") return false;
   return !document.dispatchEvent(new CustomEvent(DRAWER_EVENT, { cancelable: true }));
