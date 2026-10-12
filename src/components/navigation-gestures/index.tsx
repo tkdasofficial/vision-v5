@@ -204,7 +204,8 @@ export default function NavigationGestures() {
     document.addEventListener(`${DRAWER_EVENT}:back`, back);
     window.addEventListener("popstate", historyBack);
     const each = (handler: (point: TouchPoint) => void, cancel = false) => (event: TouchEvent) => {
-      if (event.type === "touchstart" && event.touches.length > 1) { const g = drag.current; if (g) handler === down ? release({ ...fromTouch(event, event.changedTouches[0], true), pointerId: g.id }) : undefined; return; }
+      // A second finger (pinch) cancels any swipe in progress.
+      if (event.type === "touchstart" && event.touches.length > 1) { const g = drag.current; if (g) release({ ...fromTouch(event, event.changedTouches[0], true), pointerId: g.id }); return; }
       for (const touch of Array.from(event.changedTouches)) handler(fromTouch(event, touch, cancel));
     };
     const onStart = each(down), onMove = each(move), onEnd = each(release), onCancel = each(release, true);
