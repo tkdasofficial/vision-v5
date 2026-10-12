@@ -6,6 +6,7 @@ import { useNavigate, useLocation } from "@/lib/router-compat";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import { supabase } from "@/lib/cloud/client";
 import { projectCategories, projectIcons } from "@/lib/project-options";
+import { PROJECT_NAME_MAX, clampProjectName } from "@/lib/project-name";
 import WorkspaceShell from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ export default function ProjectCreate() {
     setSaving(true);
     try {
       const id = crypto.randomUUID();
-      const result = await supabase.from("workspace_projects").insert({ id, name: name.trim(), icon, category, user_id: user.id });
+      const result = await supabase.from("workspace_projects").insert({ id, name: clampProjectName(name), icon, category, user_id: user.id });
       if (result.error) { toast.error(result.error.message); return; }
       if (chatId && await setChatProject(chatId, id)) { toast.success(`Moved to ${name.trim()}`); navigate(`/chat/${chatId}`); return; }
       navigate("/projects");
@@ -42,7 +43,7 @@ export default function ProjectCreate() {
           {projectIcons.map(({ value, label, icon: Icon }) => <Button key={value} type="button" variant={icon === value ? "secondary" : "outline"} size="icon" className={`size-11 rounded-lg ${icon === value ? "ring-2 ring-ring" : ""}`} aria-label={label} title={label} aria-pressed={icon === value} onClick={() => setIcon(icon === value ? null : value)}><Icon className="size-5" /></Button>)}
         </div>
       </fieldset>
-      <div className="space-y-2"><label htmlFor="project-name" className="text-sm font-medium">Project name</label><Input id="project-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" maxLength={100} required disabled={saving} /></div>
+      <div className="space-y-2"><label htmlFor="project-name" className="text-sm font-medium">Project name</label><Input id="project-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Project name" maxLength={PROJECT_NAME_MAX} required disabled={saving} /></div>
       <div className="space-y-2"><label id="project-category-label" className="text-sm font-medium">Category</label><Select value={category} onValueChange={setCategory} disabled={saving} required><SelectTrigger aria-labelledby="project-category-label"><SelectValue placeholder="Select category" /></SelectTrigger><SelectContent>{projectCategories.map((entry) => <SelectItem key={entry} value={entry}>{entry}</SelectItem>)}</SelectContent></Select></div>
       <div className="flex justify-end gap-2 border-t border-border pt-5"><Button type="button" variant="ghost" disabled={saving} onClick={() => navigate(chatId ? `/chat/${chatId}` : "/projects")}>Cancel</Button><Button type="submit" disabled={!name.trim() || !category || saving}><Plus />{saving ? "Creating…" : "Create"}</Button></div>
     </form>
