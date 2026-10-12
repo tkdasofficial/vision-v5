@@ -19,6 +19,7 @@ import { RouteGuard } from "@/components/route-guard";
 import { ChatHistoryProvider } from "@/context/ChatHistoryContext";
 import appCss from "../styles.css?url";
 import RouteError from "@/components/route-error";
+import { AppMotion } from "@/components/app-motion";
 
 function NotFoundComponent() {
   return (
@@ -98,6 +99,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <TooltipProvider>
+        <AppMotion />
         <AuthProvider>
           <ChatHistoryProvider>
             <Toaster />

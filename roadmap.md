@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Add carousel/parallax navigation, smooth windows and tap bounce; verify rapid navigation and reduced motion.
 - [x] Separate project/default chats, preserve creation-time ordering on transfers, and show a centered 12-character project name with project-only menu and no Incognito. Signed-in browser verification confirms saved/draft headers and transfers; regression tests pass.
 - [x] Empty chat screen shows only the app logo and the tagline "What can I help you with?"; suggestions, subtitle and pills removed. Test updated and signed-in browser check confirms nothing else between logo and message box.
 - [x] Refine Library, Plugins and Projects with floating controls and dynamic transparency; Projects centered title, back, plus and transforming top search without bottom search. Navigation tests and fixture browser checks pass; signed-in data operations remain unverified.
