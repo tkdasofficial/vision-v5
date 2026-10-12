@@ -81,3 +81,4 @@ CREATE TABLE IF NOT EXISTS deep_executions (id TEXT PRIMARY KEY, user_id TEXT NO
 ALTER TABLE workspace_projects ADD COLUMN pinned INTEGER DEFAULT 0;
 ALTER TABLE workspace_projects ADD COLUMN instructions TEXT;
 ALTER TABLE user_files ADD COLUMN project_id TEXT;
+ALTER TABLE workspace_projects ADD COLUMN memory TEXT DEFAULT 'default';

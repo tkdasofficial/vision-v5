@@ -308,6 +308,7 @@ export const TABLES: Record<string, { key: string; cols: Record<string, ColKind>
    "session_id": "text",
    "pinned": "bool",
    "instructions": "text",
+   "memory": "text",
    "created_at": "text",
    "updated_at": "text"
   }
