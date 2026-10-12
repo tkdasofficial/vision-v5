@@ -98,12 +98,14 @@ export default function NavigationGestures() {
       if (!current.current.enabled || event.pointerType !== "touch" || !event.isPrimary || drag.current) return;
       if (document.querySelector("[role='dialog']:not([data-navigation-drawer]), [role='alertdialog'], [role='menu'][data-state='open']")) return;
       if (!(event.target instanceof Element)) return;
-      if (event.target.closest("input, textarea, select, [contenteditable=true], [role=slider], [data-navigation-gesture=off]")) return;
+      // Typing fields only block swipes while focused, so the composer area still swipes.
+      const field = event.target.closest("input, textarea, select, [contenteditable=true]");
+      if (field && field === document.activeElement) return;
+      if (event.target.closest("[role=slider], [data-navigation-gesture=off]")) return;
       const edge = event.clientX <= 24;
       const drawer = opened.current || current.current.directDrawer;
       if (!drawer && gestureSurface(current.current.location.pathname) !== "other") {
         // Chat, Projects and drawer pages: swipe from anywhere, except horizontally scrolling content.
-        if (event.target.closest("pre, table, [role=tablist]")) return;
         for (let node: Element | null = event.target; node; node = node.parentElement) {
           if (node.scrollWidth > node.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(node).overflowX)) return;
         }
@@ -128,7 +130,7 @@ export default function NavigationGestures() {
       if (!gesture.active) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
         if (gesture.kind === "pending") {
-          const action = Math.abs(dy) >= Math.abs(dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
+          const action = Math.abs(dy) * 1.2 >= Math.abs(dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
           if (!action) { drag.current = null; return; }
           if (action === "drawer" || action === "projects") sideRef.current = action === "projects" ? "right" : "left";
           gesture.kind = action === "projects" ? "drawer" : action;
