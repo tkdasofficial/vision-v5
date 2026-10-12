@@ -1,4 +1,6 @@
-type MotionLocation = { pathname: string; state?: { __TSR_index?: number; __visionDirection?: "forward" | "back" } };
+import type { NavigationDirection } from "@/lib/navigation-motion";
+
+type MotionLocation = { pathname: string; state?: { __TSR_index?: number; __visionDirection?: NavigationDirection } };
 
 /** A draft receiving its saved URL is not a page change. */
 export function pageTransitionTypes({ fromLocation, toLocation, pathChanged }: {
@@ -9,6 +11,11 @@ export function pageTransitionTypes({ fromLocation, toLocation, pathChanged }: {
   if (/^\/chat\/?$/.test(fromLocation.pathname) && /^\/chat\/[^/]+\/?$/.test(toLocation.pathname) && toLocation.pathname !== "/chat/incognito") return false;
   const previousIndex = fromLocation.state?.__TSR_index;
   const nextIndex = toLocation.state?.__TSR_index;
+  const historyBack = previousIndex !== undefined && nextIndex !== undefined && nextIndex < previousIndex;
+  // Drawer pages: opened left→right, closed right→left (by back or by an explicit "to-left").
+  if (historyBack && fromLocation.state?.__visionDirection === "left") return ["page-to-left"];
+  if (!historyBack && toLocation.state?.__visionDirection === "to-left") return ["page-to-left"];
+  if (!historyBack && toLocation.state?.__visionDirection === "left") return ["page-from-left"];
   const backward = previousIndex !== undefined && nextIndex !== undefined
     ? nextIndex < previousIndex
     : toLocation.pathname.split("/").length < fromLocation.pathname.split("/").length;
