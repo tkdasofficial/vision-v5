@@ -6,6 +6,7 @@ import { recentChats } from "@/lib/recent-chats";
 import SidebarFeatures from "@/components/sidebar-features";
 import ProfileMenu from "@/components/profile-menu";
 import ChatItemMenu from "@/components/chat-item-menu";
+import { DRAWER_SEARCH_EVENT } from "@/lib/navigation-motion";
 import WorkspaceSearch from "@/components/workspace-search";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,12 @@ export default function AppDrawerView({ onClose, onNewChat, onSelectChat, active
     setSearching(false);
   };
   useEffect(() => () => { if (morphTimer.current) clearTimeout(morphTimer.current); }, []);
+  // Pull-down (top→down) anywhere in the drawer morphs it into Search, same as the Search button.
+  useEffect(() => {
+    const onSearchRequest = (event: Event) => { event.preventDefault(); openSearch(); };
+    document.addEventListener(DRAWER_SEARCH_EVENT, onSearchRequest);
+    return () => document.removeEventListener(DRAWER_SEARCH_EVENT, onSearchRequest);
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const chats = recentChats(history);
