@@ -70,3 +70,33 @@ describe("persistent drawer", () => {
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 });
+import { gestureSurface, swipeAction } from "@/lib/navigation-motion";
+import { shouldShowTutorial } from "@/lib/usage-guide";
+import { pageTransitionTypes as types2 } from "@/lib/app-motion";
+describe("gesture flow", () => {
+  it("chat: right opens drawer, left opens projects", () => {
+    expect(swipeAction(gestureSurface("/chat/abc"), 50)).toBe("drawer");
+    expect(swipeAction(gestureSurface("/chat"), -50)).toBe("projects");
+  });
+  it("projects returns to chat only left-to-right", () => {
+    expect(swipeAction(gestureSurface("/projects"), 50)).toBe("to-chat");
+    expect(swipeAction(gestureSurface("/projects"), -50)).toBeNull();
+  });
+  it("drawer pages close right-to-left and never reopen by gesture", () => {
+    for (const p of ["/library", "/integrations", "/settings"]) {
+      expect(swipeAction(gestureSurface(p), -50)).toBe("to-drawer");
+      expect(swipeAction(gestureSurface(p), 50)).toBeNull();
+    }
+    expect(swipeAction(gestureSurface("/settings/ai"), -50)).toBeNull();
+  });
+  it("drawer pages open from the left and close to the left", () => {
+    expect(types2({ fromLocation: { pathname: "/chat", state: { __TSR_index: 1 } }, toLocation: { pathname: "/library", state: { __TSR_index: 2, __visionDirection: "left" } }, pathChanged: true })).toEqual(["page-from-left"]);
+    expect(types2({ fromLocation: { pathname: "/library", state: { __TSR_index: 2, __visionDirection: "left" } }, toLocation: { pathname: "/chat", state: { __TSR_index: 1 } }, pathChanged: true })).toEqual(["page-to-left"]);
+  });
+  it("tutorial only for new, unseen accounts", () => {
+    const now = Date.parse("2026-10-12T12:00:00Z");
+    expect(shouldShowTutorial({ id: "u", created_at: "2026-10-12T11:00:00Z" }, false, now)).toBe(true);
+    expect(shouldShowTutorial({ id: "u", created_at: "2026-10-12T11:00:00Z" }, true, now)).toBe(false);
+    expect(shouldShowTutorial({ id: "u", created_at: "2026-10-01T11:00:00Z" }, false, now)).toBe(false);
+  });
+});

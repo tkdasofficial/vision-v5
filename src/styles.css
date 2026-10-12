@@ -275,6 +275,11 @@ html:active-view-transition-type(page-back) { --page-enter-x: -25%; --page-exit-
 ::view-transition-new(root) { animation: page-carousel-in var(--motion-page) var(--motion-ease) both; mix-blend-mode: normal; }
 html:active-view-transition-type(page-back)::view-transition-old(root) { z-index: 2; }
 html:active-view-transition-type(page-back)::view-transition-new(root) { z-index: 1; }
+/* Drawer pages (Library, Plugins, Settings) slide in from the left and leave to the left. */
+html:active-view-transition-type(page-from-left) { --page-enter-x: -100%; --page-exit-x: 25%; }
+html:active-view-transition-type(page-to-left) { --page-enter-x: 25%; --page-exit-x: -100%; }
+html:active-view-transition-type(page-to-left)::view-transition-old(root) { z-index: 2; }
+html:active-view-transition-type(page-to-left)::view-transition-new(root) { z-index: 1; }
 ::view-transition { pointer-events: none; }
 @keyframes page-carousel-in {
   from { transform: translateX(var(--page-enter-x)); }

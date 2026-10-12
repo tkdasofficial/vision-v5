@@ -19,6 +19,7 @@ import { Route as DrawerRouteImport } from './routes/drawer'
 import { Route as EnterpriseRouteImport } from './routes/enterprise'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as GettingStartedRouteImport } from './routes/getting-started'
+import { Route as GuideRouteImport } from './routes/guide'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as LibraryRouteImport } from './routes/library'
@@ -145,6 +146,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const GettingStartedRoute = GettingStartedRouteImport.update({
   id: '/getting-started',
   path: '/getting-started',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuideRoute = GuideRouteImport.update({
+  id: '/guide',
+  path: '/guide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxRoute = InboxRouteImport.update({
@@ -546,6 +552,7 @@ export interface FileRoutesByFullPath {
   '/enterprise': typeof EnterpriseRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/getting-started': typeof GettingStartedRoute
+  '/guide': typeof GuideRoute
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
   '/library': typeof LibraryRoute
@@ -633,6 +640,7 @@ export interface FileRoutesByTo {
   '/enterprise': typeof EnterpriseRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/getting-started': typeof GettingStartedRoute
+  '/guide': typeof GuideRoute
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
   '/library': typeof LibraryRoute
@@ -722,6 +730,7 @@ export interface FileRoutesById {
   '/enterprise': typeof EnterpriseRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/getting-started': typeof GettingStartedRoute
+  '/guide': typeof GuideRoute
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
   '/library': typeof LibraryRoute
@@ -813,6 +822,7 @@ export interface FileRouteTypes {
     | '/enterprise'
     | '/forgot-password'
     | '/getting-started'
+    | '/guide'
     | '/inbox'
     | '/integrations'
     | '/library'
@@ -900,6 +910,7 @@ export interface FileRouteTypes {
     | '/enterprise'
     | '/forgot-password'
     | '/getting-started'
+    | '/guide'
     | '/inbox'
     | '/integrations'
     | '/library'
@@ -988,6 +999,7 @@ export interface FileRouteTypes {
     | '/enterprise'
     | '/forgot-password'
     | '/getting-started'
+    | '/guide'
     | '/inbox'
     | '/integrations'
     | '/library'
@@ -1078,6 +1090,7 @@ export interface RootRouteChildren {
   EnterpriseRoute: typeof EnterpriseRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GettingStartedRoute: typeof GettingStartedRoute
+  GuideRoute: typeof GuideRoute
   InboxRoute: typeof InboxRoute
   IntegrationsRoute: typeof IntegrationsRoute
   LibraryRoute: typeof LibraryRoute
@@ -1183,6 +1196,13 @@ declare module '@tanstack/react-router' {
       path: '/getting-started'
       fullPath: '/getting-started'
       preLoaderRoute: typeof GettingStartedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guide': {
+      id: '/guide'
+      path: '/guide'
+      fullPath: '/guide'
+      preLoaderRoute: typeof GuideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox': {
@@ -1896,6 +1916,7 @@ const rootRouteChildren: RootRouteChildren = {
   EnterpriseRoute: EnterpriseRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GettingStartedRoute: GettingStartedRoute,
+  GuideRoute: GuideRoute,
   InboxRoute: InboxRoute,
   IntegrationsRoute: IntegrationsRoute,
   LibraryRoute: LibraryRoute,

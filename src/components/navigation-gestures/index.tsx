@@ -6,9 +6,9 @@ import { useLocation, useNavigate } from "@/lib/router-compat";
 import AppDrawerView from "@/components/app-drawer";
 import { isMotionReduced } from "@/lib/app-motion";
 import { classifyRoute, safeReturnPath } from "@/lib/route-access";
-import { DRAWER_EVENT, drawerProgress, settleDrawer, springStep } from "@/lib/navigation-motion";
+import { DRAWER_EVENT, drawerProgress, gestureSurface, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
 
-type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back"; active: boolean };
+type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back" | "pending" | "projects" | "to-chat" | "to-drawer"; active: boolean };
 
 /** Only the overlay moves; the routed workspace and its live stream stay mounted. */
 export default function NavigationGestures() {
@@ -62,7 +62,16 @@ export default function NavigationGestures() {
   };
   settleRef.current = settle;
 
-  useEffect(() => { cancelAnimationFrame(frame.current); drag.current = null; dismiss(); }, [location.pathname, location.searchStr]);
+  const previous = useRef<{ path: string; index?: number } | null>(null);
+  useEffect(() => {
+    const state = location.state as { __TSR_index?: number; __visionOpenDrawer?: boolean } | undefined;
+    const prev = previous.current;
+    previous.current = { path: location.pathname, index: state?.__TSR_index };
+    cancelAnimationFrame(frame.current); drag.current = null; dismiss();
+    // Closing Library/Plugins/Settings returns to the App Drawer, already open.
+    const backFromDrawerPage = prev && gestureSurface(prev.path) === "drawer-page" && state?.__TSR_index !== undefined && prev.index !== undefined && state.__TSR_index < prev.index;
+    if (enabled && gestureSurface(location.pathname) === "chat" && (state?.__visionOpenDrawer || backFromDrawerPage)) { show(); paint(1); }
+  }, [location.pathname, location.searchStr]);
   useEffect(() => {
     const open = (event: Event) => {
       if (!current.current.enabled || current.current.directDrawer) return;
@@ -80,6 +89,16 @@ export default function NavigationGestures() {
       if (event.target.closest("input, textarea, select, [contenteditable=true], [role=slider], [data-navigation-gesture=off]")) return;
       const edge = event.clientX <= 24;
       const drawer = opened.current || current.current.directDrawer;
+      if (!drawer && gestureSurface(current.current.location.pathname) !== "other") {
+        // Chat, Projects and drawer pages: swipe from anywhere, except horizontally scrolling content.
+        if (event.target.closest("pre, table, [role=tablist]")) return;
+        for (let node: Element | null = event.target; node; node = node.parentElement) {
+          if (node.scrollWidth > node.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(node).overflowX)) return;
+        }
+        cancelAnimationFrame(frame.current);
+        drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, time: performance.now(), start: 0, velocity: 0, kind: "pending", active: false };
+        return;
+      }
       if (!drawer && !edge && event.target.closest("button, a, [role=button], pre, table, [role=tablist]")) return;
       let ancestor: Element | null = event.target;
       while (ancestor && !edge && !drawer) {
@@ -96,7 +115,12 @@ export default function NavigationGestures() {
       const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
       if (!gesture.active) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
-        if (Math.abs(dy) >= Math.abs(dx) || (gesture.start === 0 && dx < 0)) {
+        if (gesture.kind === "pending") {
+          const action = Math.abs(dy) >= Math.abs(dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
+          if (!action) { drag.current = null; return; }
+          gesture.kind = action;
+        }
+        if (Math.abs(dy) >= Math.abs(dx) || (gesture.start === 0 && dx < 0 && (gesture.kind === "drawer" || gesture.kind === "back"))) {
           drag.current = null;
           if (opened.current) settleRef.current(gesture.start > 0.5);
           return;
@@ -120,7 +144,15 @@ export default function NavigationGestures() {
       drag.current = null;
       const cancelled = event.type === "pointercancel";
       if (performance.now() - gesture.time > 100) gesture.velocity = 0;
-      if (gesture.kind === "back") {
+      const dx = event.clientX - gesture.x;
+      const commit = (sign: 1 | -1) => !cancelled && gesture.active && settleDrawer(drawerProgress(0, sign * dx, window.innerWidth), sign * gesture.velocity);
+      const nav = current.current.navigate;
+      const canGoBack = current.current.router.history.canGoBack();
+      if (gesture.kind === "pending") { /* never activated */ }
+      else if (gesture.kind === "projects") { if (commit(-1)) nav("/projects", { direction: "forward" }); }
+      else if (gesture.kind === "to-chat") { if (commit(1)) { if (canGoBack) nav(-1); else nav("/chat", { direction: "back", replace: true }); } }
+      else if (gesture.kind === "to-drawer") { if (commit(-1)) { if (canGoBack) nav(-1); else nav("/chat", { direction: "to-left", replace: true, state: { __visionOpenDrawer: true } }); } }
+      else if (gesture.kind === "back") {
         if (!cancelled && gesture.active && settleDrawer(drawerProgress(0, event.clientX - gesture.x, window.innerWidth), gesture.velocity)) current.current.navigate(-1);
       } else if (current.current.directDrawer) {
         const page = document.querySelector<HTMLElement>("[aria-label='App drawer']");

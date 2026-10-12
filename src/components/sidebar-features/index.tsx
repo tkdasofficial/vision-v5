@@ -1,18 +1,20 @@
-import { Library, FolderOpen, AtSign } from "lucide-react";
+import { Library, AtSign, Settings, BookOpen } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+// Projects is reached by swiping right-to-left on Chat, so it is not listed here.
 const features = [
   { label: "Library", to: "/library", icon: Library },
-  { label: "Projects", to: "/projects", icon: FolderOpen },
   { label: "Plugins", to: "/integrations", icon: AtSign },
+  { label: "Settings", to: "/settings", icon: Settings },
+  { label: "Guide", to: "/guide", icon: BookOpen },
 ] as const;
 
 export default function SidebarFeatures({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   return (
-    <nav aria-label="Workspace features" className="grid gap-2 pt-3 sm:grid-cols-3">
+    <nav aria-label="Workspace features" className="grid grid-cols-2 gap-2 pt-3 sm:grid-cols-4">
       {features.map(({ label, to, icon: Icon }) => {
         const active = pathname === to;
         return (
@@ -27,7 +29,8 @@ export default function SidebarFeatures({ onNavigate }: { onNavigate?: () => voi
                 : "text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
           >
-            <Link to={to} onClick={onNavigate} aria-current={active ? "page" : undefined}>
+            {/* Drawer pages open left→right; closing them returns to the drawer. */}
+            <Link to={to} state={{ __visionDirection: "left" } as never} onClick={onNavigate} aria-current={active ? "page" : undefined}>
               <Icon className={cn("size-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")} />
               <span className="truncate">{label}</span>
             </Link>
