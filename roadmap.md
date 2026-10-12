@@ -29,3 +29,5 @@
 - [x] Deep Thinking execution engine (task decomposition, per-task verify/correct, final validation, persistence, real progress) — 15 engine tests + live run verified
 - [x] Persistent app caching (service worker, IndexedDB chat cache, persistent storage request); browser behaviour on the published site not yet verified
 - [x] Old inset sidebar divider removed as part of the requested AppDrawer refinement.
+
+- [x] Gesture flow: Chat swipes (drawer/Projects), drawer pages close to drawer, Projects removed from drawer, first-run tutorial + /guide
