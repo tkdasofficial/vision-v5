@@ -83,7 +83,7 @@ export default function AppDrawerView({ onClose, onNewChat, onSelectChat, active
       </div>
     </div>}
 
-    {!searching && <footer className="drawer-bottom pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-10 sm:px-8">
+    {drawerVisible && <footer className={cn("drawer-bottom pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-10 sm:px-8", searching ? "drawer-pane-out" : "drawer-pane-in")}>
       <div className="pointer-events-auto mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <Button variant="floating" className="h-12 w-fit px-5" onClick={onNewChat}><Pencil />New chat</Button>
         <ProfileMenu floating />
