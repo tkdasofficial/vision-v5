@@ -38,7 +38,7 @@ export default function Projects({ onClose }: { onClose?: () => void } = {}) {
   const { actionsFor, dialog } = useProjectActions(() => void load());
   const shown = useMemo(() => projects.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())), [projects, query]);
 
-  return <FloatingWorkspacePage title="Projects" query={query} onQueryChange={setQuery} backTo="/chat" onBack={onClose}
+  return <FloatingWorkspacePage title="Projects" query={query} onQueryChange={setQuery} backTo="/chat" onBack={onClose} pullDownSearch
     actions={<Button variant="floating" size="icon" className="size-11 shrink-0 rounded-full [&_svg]:size-5" aria-label="Create project" title="Create project" onClick={() => navigate("/projects/new")}><Plus /></Button>}>
     {loading ? <p role="status" className="py-12 text-center text-muted-foreground">Loading…</p> : shown.length === 0 ? <div className="py-20 text-center text-muted-foreground"><FolderOpen className="mx-auto mb-4 size-8" /><p>{query ? "No projects found" : "No projects yet"}</p></div> : <div className="space-y-1">
       {shown.map((project) => {
