@@ -20,6 +20,7 @@ import { ChatHistoryProvider } from "@/context/ChatHistoryContext";
 import appCss from "../styles.css?url";
 import RouteError from "@/components/route-error";
 import { AppMotion } from "@/components/app-motion";
+import NavigationGestures from "@/components/navigation-gestures";
 
 function NotFoundComponent() {
   return (
@@ -106,6 +107,7 @@ function RootComponent() {
             <Sonner />
             <RouteGuard>
               <Outlet />
+              <NavigationGestures />
             </RouteGuard>
           </ChatHistoryProvider>
         </AuthProvider>
