@@ -1,14 +1,18 @@
 import { useEffect } from "react";
 import { isMotionReduced } from "@/lib/app-motion";
+import { setClickDirection } from "@/lib/navigation-motion";
 
 /** Delegation includes existing icon buttons and controls rendered in portals. */
 export function AppMotion() {
   useEffect(() => {
     const animations = new Map<HTMLElement, Animation>();
     const bounce = (event: MouseEvent) => {
-      if (isMotionReduced() || !(event.target instanceof Element)) return;
+      if (!(event.target instanceof Element)) return;
       const control = event.target.closest<HTMLElement>("button, [role='button'], [data-slot='button']");
       if (!control || control.matches(":disabled, [aria-disabled='true'], [data-disabled], [data-motion='off']")) return;
+      const label = control.getAttribute("aria-label") ?? control.getAttribute("title") ?? "";
+      if (/^(back\b|go back\b|close app drawer\b)/i.test(label)) setClickDirection("back");
+      if (isMotionReduced()) return;
       if (typeof control.animate !== "function") return;
       animations.get(control)?.cancel();
       // Independent scale preserves existing transforms and never changes layout.

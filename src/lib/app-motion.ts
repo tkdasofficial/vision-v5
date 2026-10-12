@@ -1,4 +1,4 @@
-type MotionLocation = { pathname: string; state?: { __TSR_index?: number } };
+type MotionLocation = { pathname: string; state?: { __TSR_index?: number; __visionDirection?: "forward" | "back" } };
 
 /** A draft receiving its saved URL is not a page change. */
 export function pageTransitionTypes({ fromLocation, toLocation, pathChanged }: {
@@ -12,7 +12,7 @@ export function pageTransitionTypes({ fromLocation, toLocation, pathChanged }: {
   const backward = previousIndex !== undefined && nextIndex !== undefined
     ? nextIndex < previousIndex
     : toLocation.pathname.split("/").length < fromLocation.pathname.split("/").length;
-  return [backward ? "page-back" : "page-forward"];
+  return [backward || (nextIndex !== previousIndex && toLocation.state?.__visionDirection === "back") ? "page-back" : "page-forward"];
 }
 
 export function isMotionReduced(): boolean {
