@@ -81,4 +81,11 @@ describe("AppDrawer", () => {
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search workspace" })).toBeInTheDocument();
   });
+  it("morphs into Search on a pull-down request, like the Search button", () => {
+    render(<AppDrawerView onClose={vi.fn()} onNewChat={vi.fn()} onSelectChat={vi.fn()} />);
+    act(() => { expect(requestSearch()).toBe(true); });
+    expect(screen.getByRole("searchbox", { name: "Search anything" })).toBeInTheDocument();
+    // The drawer content plays its exit animation before unmounting.
+    expect(screen.getByRole("button", { name: "Search workspace" }).closest("header")).toHaveClass("drawer-pane-out");
+  });
 });
