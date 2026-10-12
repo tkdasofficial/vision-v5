@@ -29,7 +29,7 @@ export default function FloatingWorkspacePage({ title, displayTitle, children, a
         </>}
       </div>
     </header>
-    <div className={`col-start-1 row-start-1 min-h-0 overflow-y-auto px-4 ${footer ? "pb-32" : "pb-[max(24px,env(safe-area-inset-bottom))]"} pt-[max(80px,calc(env(safe-area-inset-top)+68px))] sm:px-8`} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 8)}><div className="mx-auto max-w-4xl">{children}</div></div>
+    <div className={`col-start-1 row-start-1 min-h-0 overflow-y-auto px-4 ${footer ? "pb-[116px]" : "pb-[max(24px,env(safe-area-inset-bottom))]"} pt-[max(80px,calc(env(safe-area-inset-top)+68px))] sm:px-8`} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 8)}><div className="mx-auto max-w-4xl">{children}</div></div>
     {footer && <div className="drawer-bottom pointer-events-none relative z-10 col-start-1 row-start-1 self-end"><div className="pointer-events-auto">{footer}</div></div>}
   </div>;
 }
