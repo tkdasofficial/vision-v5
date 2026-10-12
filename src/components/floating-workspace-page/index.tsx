@@ -5,8 +5,8 @@ import { useNavigate } from "@/lib/router-compat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { PageMenuItem } from "@/components/page-header";
 
-export default function FloatingWorkspacePage({ title, children, actions, query, onQueryChange, menu, footer, backTo = "/drawer" }: {
-  title: string; children: ReactNode; actions?: ReactNode; query: string; onQueryChange: (value: string) => void; menu?: PageMenuItem[]; backTo?: string; footer?: ReactNode;
+export default function FloatingWorkspacePage({ title, displayTitle, children, actions, query, onQueryChange, menu, footer, backTo = "/drawer" }: {
+  title: string; displayTitle?: string; children: ReactNode; actions?: ReactNode; query: string; onQueryChange: (value: string) => void; menu?: PageMenuItem[]; backTo?: string; footer?: ReactNode;
 }) {
   const navigate = useNavigate();
   const [searching, setSearching] = useState(false);
@@ -20,7 +20,7 @@ export default function FloatingWorkspacePage({ title, children, actions, query,
           <input autoFocus type="search" value={query} onChange={(e) => onQueryChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { setSearching(false); onQueryChange(""); } }} aria-label={`Search ${title.toLowerCase()}`} placeholder={`Search ${title.toLowerCase()}`} className="drawer-floating h-11 w-full rounded-full pl-12 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden" />
           {query && <Button variant="ghost" size="icon" className="absolute right-0 top-0 size-11 rounded-full" aria-label="Clear search" title="Clear search" onClick={() => onQueryChange("")}><X /></Button>}
         </div> : <>
-          <h1 className="drawer-floating flex h-11 min-w-0 max-w-full items-center rounded-full px-3 font-display text-base font-semibold sm:px-6 sm:text-xl">{title}</h1>
+          <h1 title={title} className="drawer-floating flex h-11 min-w-0 max-w-full items-center rounded-full px-3 font-display text-base font-semibold sm:px-6 sm:text-xl">{displayTitle ?? title}</h1>
           <div className="flex items-center justify-end gap-1 sm:gap-2">
             {actions}
             <Button variant="floating" size="icon" className="size-11 shrink-0 rounded-full" aria-label={`Search ${title.toLowerCase()}`} title={`Search ${title.toLowerCase()}`} onClick={() => setSearching(true)}><Search className="size-5" /></Button>

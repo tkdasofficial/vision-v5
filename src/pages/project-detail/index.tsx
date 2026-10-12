@@ -12,6 +12,7 @@ import { useProjectActions, type ProjectRow } from "@/components/project-menu/us
 import { Button } from "@/components/ui/button";
 import { projectChats } from "@/lib/recent-chats";
 import { setPendingProjectPrompt } from "@/lib/pending-project";
+import { projectHeaderName } from "@/lib/project-name";
 import { cn } from "@/lib/utils";
 
 type Source = { id: string; name: string; mime: string; kind: string; size: number; url: string; created_at: string };
@@ -80,7 +81,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
   if (missing) return <FloatingWorkspacePage title="Project" query={query} onQueryChange={setQuery} backTo="/projects"><div className="py-20 text-center text-muted-foreground"><FolderOpen className="mx-auto mb-4 size-8" /><p>Project not found</p></div></FloatingWorkspacePage>;
 
-  return <FloatingWorkspacePage title={project?.name || "Project"} query={query} onQueryChange={setQuery} backTo="/projects" footer={tab === "chats" ? <ChatInput toolName={project?.name} onSend={handleSend} /> : undefined}>
+  return <FloatingWorkspacePage title={project?.name || "Project"} displayTitle={projectHeaderName(project?.name || "Project")} query={query} onQueryChange={setQuery} backTo="/projects" footer={tab === "chats" ? <ChatInput toolName={project?.name} onSend={handleSend} /> : undefined}>
     <div role="tablist" aria-label="Project sections" className="mb-5 grid grid-cols-2 gap-2">
       {(["chats", "sources"] as const).map((t) => <button key={t} type="button" role="tab" aria-selected={tab === t} data-state={tab === t ? "active" : "inactive"} onClick={() => { setTab(t); setQuery(""); }} className="drawer-filter relative z-0 flex h-11 touch-manipulation items-center justify-center gap-2 rounded-full text-sm font-semibold capitalize text-foreground">
         {t === "chats" ? <MessageSquare className="size-4" /> : <FileText className="size-4" />}{t}
