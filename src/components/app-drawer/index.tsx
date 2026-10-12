@@ -47,19 +47,20 @@ export default function AppDrawerView({ onClose, onNewChat, onSelectChat, active
   };
 
   return <div className="app-drawer relative flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground" data-scrolled={scrolled}>
-    {!searching && <header className="drawer-top absolute inset-x-0 top-0 z-10 px-4 pb-6 pt-[max(12px,env(safe-area-inset-top))] sm:px-8">
+    {drawerVisible && <header className={cn("drawer-top absolute inset-x-0 top-0 z-10 px-4 pb-6 pt-[max(12px,env(safe-area-inset-top))] sm:px-8", searching ? "drawer-pane-out" : "drawer-pane-in")}>
       <div className="mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button variant="floating" className="h-11 min-w-0 px-5 font-display text-xl font-semibold" onClick={onNewChat}>Vision</Button>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="floating" size="icon" className="size-11" aria-label="Search workspace" title="Search" onClick={() => { setScrolled(false); setSearching(true); }}><Search /></Button>
+          <Button variant="floating" size="icon" className="size-11" aria-label="Search workspace" title="Search" onClick={openSearch}><Search /></Button>
           <Button variant="floating" size="icon" className="size-11" aria-label="Close app drawer" title="Close drawer" onClick={onClose}><X /></Button>
         </div>
       </div>
     </header>}
 
-    {searching ? <WorkspaceSearch topSearch onBack={() => { setScrolled(false); setSearching(false); }} onScrollChange={setScrolled} /> : <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-[max(84px,calc(env(safe-area-inset-top)+72px))] sm:px-8" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 8)}>
+    {searching && <div className="drawer-pane-in absolute inset-0 z-20 flex flex-col"><WorkspaceSearch topSearch onBack={closeSearch} onScrollChange={setScrolled} /></div>}
+    {drawerVisible && <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-[max(84px,calc(env(safe-area-inset-top)+72px))] sm:px-8", searching ? "drawer-pane-out" : "drawer-pane-in")} onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 8)}>
       <div className="mx-auto max-w-4xl">
         <SidebarFeatures />
         <section aria-label="Recent chats" className="mt-9">
