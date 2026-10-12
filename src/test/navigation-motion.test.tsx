@@ -1,16 +1,59 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
-import { drawerProgress, settleDrawer, springStep, requestDrawer, setClickDirection, consumeClickDirection } from "@/lib/navigation-motion";
+import { drawerProgress, settleDrawer, springStep, requestDrawer, requestProjects, PROJECTS_SEARCH_EVENT, DRAWER_SEARCH_EVENT, setClickDirection, consumeClickDirection } from "@/lib/navigation-motion";
 import { pageTransitionTypes } from "@/lib/app-motion";
 
-const mocks = vi.hoisted(() => ({ navigate: vi.fn(), canGoBack: vi.fn(() => true) }));
+const mocks = vi.hoisted(() => ({ navigate: vi.fn(), canGoBack: vi.fn(() => true), pathname: "/chat" }));
 vi.mock("@/context/AuthContext", () => ({ useAuth: () => ({ user: { id: "test" } }) }));
-vi.mock("@/lib/router-compat", () => ({ useLocation: () => ({ pathname: "/chat", searchStr: "" }), useNavigate: () => mocks.navigate }));
+vi.mock("@/lib/router-compat", () => ({ useLocation: () => ({ pathname: mocks.pathname, searchStr: "" }), useNavigate: () => mocks.navigate }));
 vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ history: { canGoBack: mocks.canGoBack } }) }));
 vi.mock("@/components/app-drawer", () => ({ default: ({ onClose }: { onClose: () => void }) => <button onClick={onClose}>Close drawer</button> }));
+vi.mock("@/pages/projects", () => ({ default: () => <div data-projects-search>Projects content</div> }));
 import NavigationGestures from "@/components/navigation-gestures";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); document.documentElement.classList.remove("reduce-motion"); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); mocks.pathname = "/chat"; document.documentElement.classList.remove("reduce-motion"); });
+
+function pullDown(target: Element) {
+  const point = { identifier: 1, clientX: 160, clientY: 200 };
+  fireEvent.touchStart(target, { touches: [point], changedTouches: [point] });
+  const moved = { ...point, clientY: 260 };
+  fireEvent.touchMove(target, { touches: [moved], changedTouches: [moved] });
+  fireEvent.touchEnd(target, { touches: [], changedTouches: [moved] });
+}
+
+describe("Projects pull-down ownership", () => {
+  it("targets Projects in the right panel without opening drawer search", () => {
+    document.documentElement.classList.add("reduce-motion");
+    render(<NavigationGestures />);
+    act(() => { requestProjects(); });
+    const projects = screen.getByText("Projects content");
+    const search = vi.fn((event: Event) => event.preventDefault());
+    const drawerSearch = vi.fn();
+    projects.addEventListener(PROJECTS_SEARCH_EVENT, search);
+    document.addEventListener(DRAWER_SEARCH_EVENT, drawerSearch);
+    pullDown(projects);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(drawerSearch).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    document.removeEventListener(DRAWER_SEARCH_EVENT, drawerSearch);
+  });
+  it("targets routed Projects and leaves ordinary vertical scrolling alone", () => {
+    mocks.pathname = "/projects";
+    render(<><div data-projects-search><div data-testid="list" style={{ overflowY: "auto" }}>Project list</div></div><NavigationGestures /></>);
+    const list = screen.getByTestId("list");
+    Object.defineProperties(list, { scrollHeight: { value: 1000 }, clientHeight: { value: 200 }, scrollTop: { value: 100, writable: true } });
+    const search = vi.fn((event: Event) => event.preventDefault());
+    list.parentElement?.addEventListener(PROJECTS_SEARCH_EVENT, search);
+    pullDown(list);
+    expect(search).not.toHaveBeenCalled();
+    list.scrollTop = 0;
+    pullDown(list);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+});
 
 describe("direction and spring rules", () => {
   it("tracks the finger across the full drawer width and clamps at both edges", () => {
