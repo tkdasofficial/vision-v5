@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { SettingsPage, SettingsRow, SettingsSection } from "@/components/settings/settings-ui";
 
 const links = [
+  { to: "/guide", label: "App Guide" },
   { to: "/support", label: "Help & Support" },
   { to: "/legal/terms", label: "Terms of Service" },
   { to: "/legal/privacy", label: "Privacy Policy" },
