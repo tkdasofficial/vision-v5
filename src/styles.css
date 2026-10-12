@@ -86,8 +86,9 @@
     --motion-page: 360ms;
     --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --motion-exit: cubic-bezier(0.4, 0, 1, 1);
-    --page-enter-x: 12%;
-    --page-exit-x: -5%;
+    --page-enter-x: 100%;
+    --page-exit-x: -25%;
+    --drawer-scrim: oklch(0 0 0 / 0.24);
     --settings-canvas: 0 0% 94%;
     --settings-surface: 0 0% 99%;
     --settings-divider: 0 0% 94%;
@@ -268,19 +269,25 @@
 
 /* Smooth scrollbar */
 /* Snapshot motion never transforms the live app or remounts its active chat. */
-html:active-view-transition-type(page-back) { --page-enter-x: -12%; --page-exit-x: 5%; }
+html:active-view-transition-type(page-back) { --page-enter-x: -25%; --page-exit-x: 100%; }
 ::view-transition-group(root) { animation-duration: var(--motion-page); animation-timing-function: var(--motion-ease); }
-::view-transition-old(root) { animation: page-carousel-out var(--motion-page) var(--motion-ease) both; }
-::view-transition-new(root) { animation: page-carousel-in var(--motion-page) var(--motion-ease) both; }
+::view-transition-old(root) { animation: page-carousel-out var(--motion-page) var(--motion-ease) both; mix-blend-mode: normal; }
+::view-transition-new(root) { animation: page-carousel-in var(--motion-page) var(--motion-ease) both; mix-blend-mode: normal; }
+html:active-view-transition-type(page-back)::view-transition-old(root) { z-index: 2; }
+html:active-view-transition-type(page-back)::view-transition-new(root) { z-index: 1; }
 ::view-transition { pointer-events: none; }
 @keyframes page-carousel-in {
-  from { opacity: 0; transform: translateX(var(--page-enter-x)) scale(0.985); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+  from { transform: translateX(var(--page-enter-x)); }
+  to { transform: translateX(0); }
 }
 @keyframes page-carousel-out {
-  from { opacity: 1; transform: translateX(0) scale(1); }
-  to { opacity: 0; transform: translateX(var(--page-exit-x)) scale(0.985); }
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--page-exit-x)); }
 }
+.navigation-drawer { position: fixed; inset: 0; z-index: 45; }
+.navigation-drawer-scrim { position: absolute; inset: 0; background: var(--drawer-scrim); opacity: var(--drawer-progress, 0); }
+.navigation-drawer-panel { position: absolute; inset: 0; transform: translate3d(calc((var(--drawer-progress, 0) - 1) * 100%), 0, 0); will-change: transform; touch-action: pan-y; }
+.navigation-edge { position: fixed; inset: 0 auto 0 0; width: 24px; z-index: 44; touch-action: pan-y; }
 .motion-window[data-state=open] { animation: window-reveal var(--motion-window) var(--motion-ease) both; }
 .motion-window[data-state=closed] { animation: window-dismiss var(--motion-fast) var(--motion-exit) both; }
 @keyframes window-reveal { from { opacity: 0; scale: 0.96; } to { opacity: 1; scale: 1; } }
