@@ -7,6 +7,7 @@ import { supabase } from "@/lib/cloud/client";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PROJECT_NAME_MAX, clampProjectName } from "@/lib/project-name";
 import type { ProjectMenuActions } from "./index";
 
 export type ProjectRow = { id: string; name: string; icon?: string; category?: string; pinned?: boolean | number | null; instructions?: string | null; created_at?: string; updated_at?: string };
@@ -49,7 +50,7 @@ export function useProjectActions(onChange: () => void, onDeleted?: () => void) 
 
   const save = async () => {
     if (!editing) return;
-    const v = value.trim();
+    const v = editing.field === "name" ? clampProjectName(value) : value.trim();
     if (editing.field === "name" && !v) return;
     if (await update(editing.project.id, { [editing.field]: v || null })) setEditing(null);
   };
@@ -59,7 +60,7 @@ export function useProjectActions(onChange: () => void, onDeleted?: () => void) 
       <DialogHeader><DialogTitle>{editing?.field === "name" ? "Edit project" : "Project instructions"}</DialogTitle></DialogHeader>
       <form id="project-edit" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         {editing?.field === "name"
-          ? <Input autoFocus aria-label="Project name" value={value} maxLength={100} onChange={(e) => setValue(e.target.value)} className="rounded-full" />
+          ? <Input autoFocus aria-label="Project name" value={value} maxLength={PROJECT_NAME_MAX} onChange={(e) => setValue(e.target.value)} className="rounded-full" />
           : <textarea autoFocus aria-label="Project instructions" value={value} maxLength={4000} rows={7} onChange={(e) => setValue(e.target.value)} placeholder="How should Vision respond in this project?" className="w-full rounded-2xl border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}
       </form>
       <DialogFooter><Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button><Button type="submit" form="project-edit" disabled={editing?.field === "name" && !value.trim()}>Save</Button></DialogFooter>
