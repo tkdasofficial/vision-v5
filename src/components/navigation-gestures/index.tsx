@@ -7,7 +7,7 @@ import AppDrawerView from "@/components/app-drawer";
 import Projects from "@/pages/projects";
 import { isMotionReduced } from "@/lib/app-motion";
 import { classifyRoute, safeReturnPath } from "@/lib/route-access";
-import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
+import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, requestSearch, settleDrawer, springStep, swipeAction } from "@/lib/navigation-motion";
 
 type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back" | "pending" | "projects" | "to-chat" | "to-drawer"; active: boolean };
 
@@ -15,6 +15,13 @@ function scrollsX(start: Element | null, dx: number) {
   for (let node = start; node && node !== document.body; node = node.parentElement) {
     if (node.scrollWidth <= node.clientWidth + 2 || !/auto|scroll/.test(getComputedStyle(node).overflowX)) continue;
     if (dx > 0 ? node.scrollLeft > 1 : node.scrollLeft + node.clientWidth < node.scrollWidth - 1) return true;
+  }
+  return false;
+}
+/** True when the touched content can still scroll up, so a pull-down there means "scroll", not "search". */
+function scrollsUp(start: Element | null) {
+  for (let node = start; node && node !== document.body; node = node.parentElement) {
+    if (node.scrollHeight > node.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollTop > 1) return true;
   }
   return false;
 }
