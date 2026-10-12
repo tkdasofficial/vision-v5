@@ -88,4 +88,12 @@ describe("AppDrawer", () => {
     // The drawer content plays its exit animation before unmounting.
     expect(screen.getByRole("button", { name: "Search workspace" }).closest("header")).toHaveClass("drawer-pane-out");
   });
+  it("returns to the triggering page when Search was opened by a pull-down from Chat", () => {
+    const back = vi.fn();
+    render(<AppDrawerView initialSearch onSearchBack={back} onClose={vi.fn()} onNewChat={vi.fn()} onSelectChat={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Back to drawer" }));
+    expect(back).toHaveBeenCalled();
+    // No morph back to the drawer: the overlay closes straight onto Chat.
+    expect(screen.queryByRole("button", { name: "Search workspace" })).not.toBeInTheDocument();
+  });
 });
