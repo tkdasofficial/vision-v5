@@ -83,7 +83,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
   return <FloatingWorkspacePage title={project?.name || "Project"} displayTitle={projectHeaderName(project?.name || "Project")} query={query} onQueryChange={setQuery} backTo="/projects" footer={tab === "chats" ? <ChatInput toolName={project?.name} onSend={handleSend} /> : undefined}>
     <div role="tablist" aria-label="Project sections" className="mb-5 grid grid-cols-2 gap-2">
-      {(["chats", "sources"] as const).map((t) => <button key={t} type="button" role="tab" aria-selected={tab === t} data-state={tab === t ? "active" : "inactive"} onClick={() => { setTab(t); setQuery(""); }} className="drawer-filter relative z-0 flex h-11 touch-manipulation items-center justify-center gap-2 rounded-full text-sm font-semibold capitalize text-foreground">
+      {(["chats", "sources"] as const).map((t) => <button key={t} type="button" role="tab" aria-selected={tab === t} data-state={tab === t ? "active" : "inactive"} onClick={() => { setTab(t); setQuery(""); }} className="drawer-filter relative z-0 flex h-10 touch-manipulation items-center justify-center gap-2 rounded-full text-sm font-semibold capitalize text-foreground">
         {t === "chats" ? <MessageSquare className="size-4" /> : <FileText className="size-4" />}{t}
       </button>)}
     </div>
