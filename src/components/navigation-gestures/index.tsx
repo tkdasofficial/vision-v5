@@ -11,6 +11,19 @@ import { DRAWER_EVENT, PROJECTS_EVENT, drawerProgress, gestureSurface, settleDra
 
 type Drag = { id: number; x: number; y: number; lastX: number; time: number; start: number; velocity: number; kind: "drawer" | "back" | "pending" | "projects" | "to-chat" | "to-drawer"; active: boolean };
 
+function scrollsX(start: Element | null, dx: number) {
+  for (let node = start; node && node !== document.body; node = node.parentElement) {
+    if (node.scrollWidth <= node.clientWidth + 2 || !/auto|scroll/.test(getComputedStyle(node).overflowX)) continue;
+    if (dx > 0 ? node.scrollLeft > 1 : node.scrollLeft + node.clientWidth < node.scrollWidth - 1) return true;
+  }
+  return false;
+}
+type TouchPoint = { pointerType: string; isPrimary: boolean; pointerId: number; clientX: number; clientY: number; target: EventTarget | null; type: string; preventDefault: () => void };
+/** Touch events keep arriving even where a scroll area would cancel pointer events, so swipes work anywhere. */
+function fromTouch(event: TouchEvent, touch: Touch, cancel = false): TouchPoint {
+  return { pointerType: "touch", isPrimary: event.touches.length <= 1, pointerId: touch.identifier, clientX: touch.clientX, clientY: touch.clientY, target: event.target, type: cancel ? "pointercancel" : event.type, preventDefault: () => { if (event.cancelable) event.preventDefault(); } };
+}
+
 /** Only the overlay moves; the routed workspace and its live stream stay mounted. */
 export default function NavigationGestures() {
   const { user } = useAuth();
@@ -28,6 +41,7 @@ export default function NavigationGestures() {
   const opened = useRef(false);
   const settleRef = useRef<(open: boolean, velocity?: number, to?: "left" | "right") => void>(() => {});
   const drag = useRef<Drag | null>(null);
+  const target = useRef<Element | null>(null);
   const suppressClick = useRef(false);
   const lastFocus = useRef<HTMLElement | null>(null);
   const current = useRef({ enabled, directDrawer, location, navigate, router });
@@ -94,7 +108,7 @@ export default function NavigationGestures() {
       event.preventDefault(); settleRef.current(false);
     };
     const historyBack = () => { if (opened.current) settleRef.current(false); };
-    const down = (event: PointerEvent) => {
+    const down = (event: TouchPoint) => {
       if (!current.current.enabled || event.pointerType !== "touch" || !event.isPrimary || drag.current) return;
       if (document.querySelector("[role='dialog']:not([data-navigation-drawer]), [role='alertdialog'], [role='menu'][data-state='open']")) return;
       if (!(event.target instanceof Element)) return;
@@ -106,10 +120,8 @@ export default function NavigationGestures() {
       const drawer = opened.current || current.current.directDrawer;
       if (!drawer && gestureSurface(current.current.location.pathname) !== "other") {
         // Chat, Projects and drawer pages: swipe from anywhere, except horizontally scrolling content.
-        for (let node: Element | null = event.target; node; node = node.parentElement) {
-          if (node.scrollWidth > node.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(node).overflowX)) return;
-        }
         cancelAnimationFrame(frame.current);
+        target.current = event.target;
         drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, time: performance.now(), start: 0, velocity: 0, kind: "pending", active: false };
         return;
       }
@@ -123,14 +135,15 @@ export default function NavigationGestures() {
       cancelAnimationFrame(frame.current);
       drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, time: performance.now(), start: current.current.directDrawer ? 1 : opened.current ? progress.current : 0, velocity: 0, kind: drawer || edge ? "drawer" : "back", active: false };
     };
-    const move = (event: PointerEvent) => {
+    const move = (event: TouchPoint) => {
       const gesture = drag.current;
       if (!gesture || gesture.id !== event.pointerId) return;
       const dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
       if (!gesture.active) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
         if (gesture.kind === "pending") {
-          const action = Math.abs(dy) * 1.2 >= Math.abs(dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
+          // Only content that can still scroll in the swipe's direction keeps the swipe.
+          const action = Math.abs(dy) * 1.2 >= Math.abs(dx) || scrollsX(target.current, dx) ? null : swipeAction(gestureSurface(current.current.location.pathname), dx);
           if (!action) { drag.current = null; return; }
           if (action === "drawer" || action === "projects") sideRef.current = action === "projects" ? "right" : "left";
           gesture.kind = action === "projects" ? "drawer" : action;
@@ -153,7 +166,7 @@ export default function NavigationGestures() {
         else paint(drawerProgress(gesture.start, dx * sign(), window.innerWidth));
       }
     };
-    const release = (event: PointerEvent) => {
+    const release = (event: TouchPoint) => {
       const gesture = drag.current;
       if (!gesture || gesture.id !== event.pointerId) return;
       drag.current = null;
@@ -190,10 +203,15 @@ export default function NavigationGestures() {
     document.addEventListener(PROJECTS_EVENT, openProjects);
     document.addEventListener(`${DRAWER_EVENT}:back`, back);
     window.addEventListener("popstate", historyBack);
-    document.addEventListener("pointerdown", down, true);
-    document.addEventListener("pointermove", move, { capture: true, passive: false });
-    document.addEventListener("pointerup", release, true);
-    document.addEventListener("pointercancel", release, true);
+    const each = (handler: (point: TouchPoint) => void, cancel = false) => (event: TouchEvent) => {
+      if (event.type === "touchstart" && event.touches.length > 1) { const g = drag.current; if (g) handler === down ? release({ ...fromTouch(event, event.changedTouches[0], true), pointerId: g.id }) : undefined; return; }
+      for (const touch of Array.from(event.changedTouches)) handler(fromTouch(event, touch, cancel));
+    };
+    const onStart = each(down), onMove = each(move), onEnd = each(release), onCancel = each(release, true);
+    document.addEventListener("touchstart", onStart, { capture: true, passive: true });
+    document.addEventListener("touchmove", onMove, { capture: true, passive: false });
+    document.addEventListener("touchend", onEnd, true);
+    document.addEventListener("touchcancel", onCancel, true);
     document.addEventListener("click", click, true);
     return () => {
       cancelAnimationFrame(frame.current);
@@ -201,10 +219,10 @@ export default function NavigationGestures() {
       document.removeEventListener(PROJECTS_EVENT, openProjects);
       document.removeEventListener(`${DRAWER_EVENT}:back`, back);
       window.removeEventListener("popstate", historyBack);
-      document.removeEventListener("pointerdown", down, true);
-      document.removeEventListener("pointermove", move, true);
-      document.removeEventListener("pointerup", release, true);
-      document.removeEventListener("pointercancel", release, true);
+      document.removeEventListener("touchstart", onStart, true);
+      document.removeEventListener("touchmove", onMove, true);
+      document.removeEventListener("touchend", onEnd, true);
+      document.removeEventListener("touchcancel", onCancel, true);
       document.removeEventListener("click", click, true);
       media.removeEventListener("change", preference); observer.disconnect();
     };
