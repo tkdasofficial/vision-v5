@@ -12,7 +12,7 @@ export function pageTransitionTypes({ fromLocation, toLocation, pathChanged }: {
   const backward = previousIndex !== undefined && nextIndex !== undefined
     ? nextIndex < previousIndex
     : toLocation.pathname.split("/").length < fromLocation.pathname.split("/").length;
-  return [backward || (nextIndex !== previousIndex && toLocation.state?.__visionDirection === "back") ? "page-back" : "page-forward"];
+  return [backward || ((nextIndex === undefined || previousIndex === undefined || nextIndex > previousIndex) && toLocation.state?.__visionDirection === "back") ? "page-back" : "page-forward"];
 }
 
 export function isMotionReduced(): boolean {
