@@ -21,6 +21,7 @@ import appCss from "../styles.css?url";
 import RouteError from "@/components/route-error";
 import { AppMotion } from "@/components/app-motion";
 import NavigationGestures from "@/components/navigation-gestures";
+import OnboardingTutorial from "@/components/onboarding-tutorial";
 
 function NotFoundComponent() {
   return (
@@ -108,6 +109,7 @@ function RootComponent() {
             <RouteGuard>
               <Outlet />
               <NavigationGestures />
+              <OnboardingTutorial />
             </RouteGuard>
           </ChatHistoryProvider>
         </AuthProvider>
