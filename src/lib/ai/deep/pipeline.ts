@@ -3,6 +3,7 @@
 import type { RequestAnalysis } from "./analyze";
 import { nearestFeasible, planDurations } from "./durations";
 import { validateCandidate, type Issue } from "./validators";
+import { instructionAddendum, spliceSections } from "./instructions";
 
 export type ChatMsg = { role: "system" | "user" | "assistant"; content: unknown };
 export type CallResult = { ok: true; text: string; finishReason: string | null } | { ok: false; status: number; reason: string };
@@ -33,6 +34,7 @@ export function planAddendum(a: RequestAnalysis): string {
       }
     }
   }
+  if (a.instructions) lines.push(...instructionAddendum(a.instructions, a.items?.noun ?? null));
   return lines.length ? `\n\nRequirements checked automatically after you answer:\n- ${lines.join("\n- ")}` : "";
 }
 
@@ -112,7 +114,7 @@ export async function runDeepPipeline(opts: {
     stages.push("review"); prog("verifying");
     const r = await opts.call([
       { role: "system", content: REVIEW_SYSTEM },
-      { role: "user", content: `User request:\n${clip(request, 12000)}\n\nDraft answer:\n${clip(text, 30000)}` },
+      { role: "user", content: `User request:\n${clip(request, 12000)}${opts.analysis.instructions?.consistency ? "\n\nAlso check continuity: each character's name, appearance and clothing must stay the same unless the story explicitly changes them, and events must follow in a logical order. Name the part number of any inconsistency." : ""}\n\nDraft answer:\n${clip(text, 30000)}` },
     ]);
     if (!r.ok) { stages.push("review-failed"); return null; }
     const v = parseReview(r.text);
@@ -131,9 +133,25 @@ export async function runDeepPipeline(opts: {
   while (issues.some((i) => i.code !== "truncated") && corrections < L.maxCorrections && !overBudget()) {
     corrections++;
     stages.push("correct"); prog("correcting");
-    const r = await opts.call([...messages, { role: "assistant", content: text },
-      { role: "user", content: `Automatic verification found these problems in your answer:\n- ${issues.map((i) => i.message).join("\n- ")}\nReturn the complete corrected answer only (not a diff, no commentary about the correction). Keep everything that was already correct.` }]);
-    if (!r.ok) break;
+    // Targeted: when every problem is local to known sections, rewrite only those and splice them back.
+    const noun = opts.analysis.items?.noun;
+    const targets = noun && issues.every((i) => i.items?.length) ? [...new Set(issues.flatMap((i) => i.items!))].sort((x, y) => x - y) : null;
+    let candidate: string | null = null, candFinish: string | null = "stop";
+    if (targets && noun) {
+      stages.push("correct-sections");
+      const r = await opts.call([...messages, { role: "assistant", content: text },
+        { role: "user", content: `Automatic verification found these problems:\n- ${issues.map((i) => i.message).join("\n- ")}\nRewrite ONLY ${noun} ${targets.join(", ")} to fix them, keeping the same labels ("${cap(noun)} N"), characters and story. Output only those ${noun}s, nothing else.` }]);
+      if (!r.ok) break;
+      candidate = spliceSections(text, r.text, noun, targets);
+    }
+    if (candidate == null) {
+      const r = await opts.call([...messages, { role: "assistant", content: text },
+        { role: "user", content: `Automatic verification found these problems in your answer:\n- ${issues.map((i) => i.message).join("\n- ")}\nReturn the complete corrected answer only (not a diff, no commentary about the correction). Keep everything that was already correct.` }]);
+      if (!r.ok) break;
+      candidate = r.text; candFinish = r.finishReason;
+    }
+    const r = { text: candidate, finishReason: candFinish };
+    // Always revalidate the complete output, so a targeted fix can't hide a regression elsewhere.
     let next = validateCandidate(r.text, opts.analysis, r.finishReason);
     stages.push("revalidate");
     const prevDet = issues.filter((i) => i.code !== "review").length;
@@ -151,7 +169,7 @@ export async function runDeepPipeline(opts: {
   prog("assembling");
   // 4. Honest disclosure of anything still unresolved or unchecked.
   if (issues.length) {
-    text += `\n\n> **Verification note:** some points could not be confirmed after ${corrections} correction attempt(s):\n${issues.map((i) => `> - ${i.message}`).join("\n")}`;
+    text += `\n\n> **Verification note:** some requirements are still not met after ${corrections} correction attempt(s):\n${issues.map((i) => `> - ${i.message}`).join("\n")}`;
   } else if (opts.review && reviewedText !== text) {
     text += "\n\n> **Verification note:** the independent review step could not run for this answer, so only the automatic checks were applied.";
   }
