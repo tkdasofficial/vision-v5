@@ -1,6 +1,8 @@
 // Deep Thinking Mode — deterministic request analysis. Pure and browser-safe so it is unit-tested.
 // Extracts the checkable requirements (counts, length, format, duration constraints) from the user's text.
 
+import { parseInstructions, type Instructions } from "./instructions";
+
 export type LengthPref = "short" | "detailed" | "auto";
 
 export type RequestAnalysis = {
@@ -14,6 +16,8 @@ export type RequestAnalysis = {
   totalDuration: number | null;
   /** True when the request has requirements worth a verify-and-correct pass. */
   complex: boolean;
+  /** Explicit word/script/commentary/consistency rules. Optional so older callers and fixtures stay valid. */
+  instructions?: Instructions;
 };
 
 const WORD_NUM: Record<string, number> = {
@@ -66,6 +70,8 @@ export function analyzeRequest(text: string): RequestAnalysis {
     if (v > 0 && v < 36000) totalDuration = v;
   }
 
-  const complex = !!items || wantsJson || !!allowedDurations || length === "detailed" || t.length > 600;
-  return { items, length, wantsJson, allowedDurations, totalDuration, complex };
+  const instructions = parseInstructions(t);
+  const hasRules = !!instructions.words || !!instructions.maxChars || instructions.scripts.length > 0 || instructions.noCommentary || instructions.consistency;
+  const complex = !!items || wantsJson || !!allowedDurations || length === "detailed" || t.length > 600 || hasRules;
+  return { items, length, wantsJson, allowedDurations, totalDuration, complex, ...(hasRules ? { instructions } : {}) };
 }

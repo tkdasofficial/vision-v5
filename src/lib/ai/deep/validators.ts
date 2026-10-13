@@ -1,8 +1,10 @@
 // Deterministic validators for Deep Thinking Mode candidates. Pure; never relies on the model's self-assessment.
 import type { RequestAnalysis } from "./analyze";
 import { planDurations } from "./durations";
+import { checkInstructions } from "./instructions";
 
-export type Issue = { code: string; message: string };
+/** `items` lists the affected section numbers when the problem is local, enabling targeted correction. */
+export type Issue = { code: string; message: string; items?: number[] };
 
 const NUMBER_WORDS = "\\d{1,3}";
 
@@ -82,6 +84,7 @@ export function validateCandidate(text: string, a: RequestAnalysis, finishReason
   if (a.wantsJson) issues.push(...checkJson(text));
   issues.push(...checkDurations(text, a));
   issues.push(...checkStructure(text));
+  if (a.instructions) issues.push(...checkInstructions(text, a.instructions, a.items?.noun ?? null));
   return issues;
 }
 
