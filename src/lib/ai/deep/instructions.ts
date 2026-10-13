@@ -12,6 +12,8 @@ export type Instructions = {
   /** Continuity/consistency was asked for — subjective, checked by the reviewer, never claimed as verified. */
   consistency: boolean;
 };
+import { ranges } from "./validators";
+
 export type SectionIssue = { code: string; message: string; items?: number[] };
 
 const LANG_SCRIPT: Record<string, Script> = {
@@ -68,12 +70,12 @@ export type Section = { num: number; label: string; body: string; start: number;
 
 /** Splits an answer into labelled sections ("Scene 1", "## Scene 2:", "**Scene 3**"). */
 export function splitSections(text: string, noun: string): { preamble: string; sections: Section[] } {
-  const re = new RegExp(`^[ \\t]{0,3}(?:#{1,6}\\s*)?(?:[*_]{1,2})?${noun}s?\\s*#?(\\d{1,3})\\b[^\\n]*$`, "gim");
+  const re = new RegExp(`^[ \\t]{0,3}(?:#{1,6}\\s*)?(?:[*_]{1,2})?${noun}s?\\s*#?(\\d{1,4})\\b[^\\n]*$`, "gim");
   const heads = [...text.matchAll(re)];
   const sections = heads.map((m, i) => {
     const start = m.index!, end = i + 1 < heads.length ? heads[i + 1].index! : text.length;
     const label = m[0];
-    const inline = label.replace(new RegExp(`^[ \\t]*(?:#{1,6}\\s*)?(?:[*_]{1,2})?${noun}s?\\s*#?\\d{1,3}\\s*(?:[*_]{1,2})?\\s*[:.)\\-–—]?\\s*(?:[*_]{1,2})?`, "i"), "");
+    const inline = label.replace(new RegExp(`^[ \\t]*(?:#{1,6}\\s*)?(?:[*_]{1,2})?${noun}s?\\s*#?\\d{1,4}\\s*(?:[*_]{1,2})?\\s*[:.)\\-–—]?\\s*(?:[*_]{1,2})?`, "i"), "");
     return { num: Number(m[1]), label, body: (inline + text.slice(start + label.length, end)).trim(), start, end };
   });
   return { preamble: heads.length ? text.slice(0, heads[0].index!).trim() : text.trim(), sections };
@@ -112,7 +114,7 @@ export function checkInstructions(text: string, ins: Instructions, noun: string 
     const rule = min != null && max != null ? `${min}–${max}` : min != null ? `at least ${min}` : `at most ${max}`;
     if (ins.words.per === "item" && sections.length) {
       const bad = units.map((u) => ({ num: u.num, n: countWords(u.body) })).filter((u) => out(u.n));
-      if (bad.length) issues.push({ code: "word_count", items: bad.map((b) => b.num), message: `Each ${noun} must have ${rule} words; ${bad.map((b) => `${noun} ${b.num} has ${b.n}`).join(", ")}.` });
+      if (bad.length) issues.push({ code: "word_count", items: bad.map((b) => b.num), message: `Each ${noun} must have ${rule} words; ${bad.slice(0, 40).map((b) => `${noun} ${b.num} has ${b.n}`).join(", ")}${bad.length > 40 ? ` and ${bad.length - 40} more (${ranges(bad.slice(40).map((b) => b.num))})` : ""}.` });
     } else {
       const n = countWords(body);
       if (out(n)) issues.push({ code: "word_count", message: `The answer must have ${rule} words; it has ${n}.` });
@@ -122,17 +124,18 @@ export function checkInstructions(text: string, ins: Instructions, noun: string 
 
   for (const rule of ins.scripts) {
     const bad: number[] = [];
-    let missing = 0;
+    const noDialogue: number[] = [];
     for (const u of units) {
       const parts = splitDialogue(u.body);
       const part = rule.part === "dialogue" ? parts.dialogue : rule.part === "description" ? parts.description : u.body;
       const { share, letters } = scriptShare(part, rule.script);
-      if (!letters) { if (rule.part === "dialogue") missing++; continue; }
+      if (!letters) { if (rule.part === "dialogue") noDialogue.push(u.num); continue; }
       if (share < 0.9) bad.push(u.num);
     }
     const where = rule.part === "all" ? "text" : rule.part;
-    if (bad.length) issues.push({ code: "script", items: sections.length ? bad : undefined, message: `The ${where} must be ${rule.language} written in ${rule.script} script; it isn't in ${sections.length ? `${noun} ${bad.join(", ")}` : "the answer"}.` });
-    if (rule.part === "dialogue" && missing === units.length) issues.push({ code: "dialogue_missing", message: `No dialogue was found; write ${rule.language} dialogue in quotes.` });
+    if (bad.length) issues.push({ code: "script", items: sections.length ? bad : undefined, message: `The ${where} must be ${rule.language} written in ${rule.script} script; it isn't in ${sections.length ? `${noun} ${ranges(bad)}` : "the answer"}.` });
+    // Checked per section so a later batch that drops the dialogue format is caught too.
+    if (rule.part === "dialogue" && noDialogue.length) issues.push({ code: "dialogue_missing", items: sections.length ? noDialogue : undefined, message: `No ${rule.language} dialogue (in quotes) was found in ${sections.length ? `${noun} ${ranges(noDialogue)}` : "the answer"}.` });
   }
 
   if (ins.noCommentary) {
@@ -145,17 +148,34 @@ export function checkInstructions(text: string, ins: Instructions, noun: string 
   return issues;
 }
 
-/** Replaces sections in `text` with same-numbered sections from `patch`; returns null when nothing matched. */
+/** Replaces same-numbered sections in `text` with those from `patch` and inserts missing ones in numeric order.
+ *  Returns null when the patch contained none of the requested sections. */
 export function spliceSections(text: string, patch: string, noun: string, only: number[]): string | null {
-  const orig = splitSections(text, noun).sections;
-  const repl = new Map(splitSections(patch, noun).sections.filter((s) => only.includes(s.num)).map((s) => [s.num, patch.slice(s.start, s.end).trimEnd()]));
+  const { sections: orig } = splitSections(text, noun);
+  const repl = new Map(splitSections(patch, noun).sections.filter((s) => only.includes(s.num)).map((s) => [s.num, patch.slice(s.start, s.end).trim()]));
   if (!repl.size) return null;
-  let out = text;
-  for (const s of [...orig].reverse()) {
-    const r = repl.get(s.num);
-    if (r != null) out = out.slice(0, s.start) + r + (s.end < text.length ? "\n\n" : "") + out.slice(s.end).replace(/^\s+/, "");
-  }
-  return out;
+  if (!orig.length) return [...repl.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]).join("\n\n");
+  const head = text.slice(0, orig[0].start).trimEnd();
+  const parts = new Map<number, string>();
+  for (const s of orig) if (!parts.has(s.num)) parts.set(s.num, text.slice(s.start, s.end).trim());
+  for (const [n, t] of repl) parts.set(n, t);
+  // Keep original order for existing sections; place inserted ones before the first higher number.
+  const order = orig.map((s) => s.num).filter((n, i, a) => a.indexOf(n) === i);
+  for (const n of [...repl.keys()].sort((a, b) => a - b)) if (!order.includes(n)) { const at = order.findIndex((m) => m > n); at < 0 ? order.push(n) : order.splice(at, 0, n); }
+  return (head ? head + "\n\n" : "") + order.map((n) => parts.get(n)!).join("\n\n");
+}
+
+/** Deterministic structural repair: drops numbers outside 1..count and later duplicates, and restores label order.
+ *  Content is never rewritten; returns the original text when nothing changed. */
+export function normalizeSections(text: string, noun: string, count: number): string {
+  const { sections } = splitSections(text, noun);
+  if (!sections.length) return text;
+  const seen = new Set<number>(), keep: Section[] = [];
+  for (const s of sections) if (s.num >= 1 && s.num <= count && !seen.has(s.num)) { seen.add(s.num); keep.push(s); }
+  const sorted = [...keep].sort((a, b) => a.num - b.num);
+  if (keep.length === sections.length && sorted.every((s, i) => s === keep[i])) return text;
+  const head = text.slice(0, sections[0].start).trimEnd();
+  return (head ? head + "\n\n" : "") + sorted.map((s) => text.slice(s.start, s.end).trim()).join("\n\n");
 }
 
 export function instructionAddendum(ins: Instructions, noun: string | null): string[] {

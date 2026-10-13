@@ -2,14 +2,16 @@
 // Pure orchestration: the model call is injected, so this runs in unit tests with mocks.
 import type { RequestAnalysis } from "./analyze";
 import { nearestFeasible, planDurations } from "./durations";
-import { validateCandidate, type Issue } from "./validators";
-import { instructionAddendum, spliceSections } from "./instructions";
+import { ranges, validateCandidate, type Issue } from "./validators";
+import { instructionAddendum, normalizeSections, spliceSections, splitSections } from "./instructions";
 
 export type ChatMsg = { role: "system" | "user" | "assistant"; content: unknown };
 export type CallResult = { ok: true; text: string; finishReason: string | null } | { ok: false; status: number; reason: string };
 export type ModelCall = (messages: ChatMsg[]) => Promise<CallResult>;
 
-export const DEEP_LIMITS = { maxCorrections: 2, maxContinuations: 3, budgetMs: 150_000 };
+/** Resource limits. Counts are batch sizes and caps on work per request, never assumptions about how many items exist.
+ *  batchItems: sections per generation/correction call; reviewWindowChars: text per review call; maxReviewWindows: review calls per pass. */
+export const DEEP_LIMITS = { maxCorrections: 2, maxContinuations: 3, budgetMs: 150_000, batchItems: 20, reviewWindowChars: 24_000, maxReviewWindows: 6 };
 
 export type DeepResult =
   | { ok: true; text: string; remaining: Issue[]; corrections: number; continuations: number; stages: string[] }
@@ -90,36 +92,87 @@ export async function runDeepPipeline(opts: {
     } else stages.push("plan-failed");
   }
 
-  // 1. Candidate
-  stages.push("generate"); prog("generating");
-  const first = await opts.call(messages);
-  if (!first.ok) return { ok: false, status: first.status, reason: first.reason, stages };
-  let text = first.text;
-  let finish = first.finishReason;
+  const noun = opts.analysis.items?.noun ?? null;
+  const count = opts.analysis.items?.count ?? 0;
+  const label = noun ? cap(noun) : "";
+  const contextFor = (txt: string, upTo: number) => {
+    // Continuity reference for a batch: the first section (introductions) and the latest section written.
+    const secs = splitSections(txt, noun!).sections.filter((x) => x.num < upTo);
+    const pick = [secs[0], secs[secs.length - 1]].filter((x, k, a) => x && a.indexOf(x) === k);
+    return pick.map((x) => clip(txt.slice(x.start, x.end).trim(), 3000)).join("\n\n");
+  };
 
-  // 2. Continuation for provider output limits — append, never silently truncate.
-  let continuations = 0;
-  while (finish === "length" && continuations < L.maxContinuations && !overBudget()) {
-    continuations++;
-    stages.push("continue");
-    const r = await opts.call([...messages, { role: "assistant", content: text },
-      { role: "user", content: "Continue exactly where you stopped. Do not repeat anything already written and keep the same numbering and format." }]);
-    if (!r.ok) break;
-    text += r.text;
-    finish = r.finishReason;
+  // 1. Candidate — one call, or bounded batches of sections when the request is larger than one batch.
+  stages.push("generate"); prog("generating");
+  let text = "", finish: string | null = "stop", continuations = 0;
+  let pending: number[] = [];
+  if (noun && count > L.batchItems) {
+    stages.push("batched");
+    for (let a = 1; a <= count; a += L.batchItems) {
+      const b = Math.min(count, a + L.batchItems - 1);
+      if (overBudget()) { pending.push(...Array.from({ length: count - a + 1 }, (_, k) => a + k)); break; }
+      const want = Array.from({ length: b - a + 1 }, (_, k) => a + k);
+      const ctx = text ? `\n\nAlready written (continuity reference — keep characters, clothing, terms and format identical):\n${contextFor(text, a)}` : "";
+      const r = await opts.call([...messages, { role: "user", content: `This answer has ${count} ${noun}s in total and is written in parts. Write ONLY ${label} ${a} to ${label} ${b}, labelled "${label} N", following every requirement above. No intro or closing remarks.${ctx}` }]);
+      if (!r.ok) { if (!text) return { ok: false, status: r.status, reason: r.reason, stages }; pending.push(...Array.from({ length: count - a + 1 }, (_, k) => a + k)); break; }
+      const got = splitSections(r.text, noun).sections.map((x) => x.num).filter((n) => want.includes(n));
+      // Explicit completion check per batch: sections the batch skipped stay pending for correction.
+      text = got.length ? (spliceSections(text, r.text, noun, got) ?? text) : text;
+      if (r.finishReason === "length") stages.push("batch-truncated");
+    }
+    if (!text) text = "";
+  } else {
+    const first = await opts.call(messages);
+    if (!first.ok) return { ok: false, status: first.status, reason: first.reason, stages };
+    text = first.text; finish = first.finishReason;
+    // 2. Continuation for provider output limits — append, never silently truncate.
+    while (finish === "length" && continuations < L.maxContinuations && !overBudget()) {
+      continuations++;
+      stages.push("continue");
+      const r = await opts.call([...messages, { role: "assistant", content: clip(text, 40000) },
+        { role: "user", content: "Continue exactly where you stopped. Do not repeat anything already written and keep the same numbering and format." }]);
+      if (!r.ok) break;
+      text += r.text;
+      finish = r.finishReason;
+    }
   }
 
-  let reviewedText: string | null = null;
+  // Deterministic structural repair (extras, duplicates, order) before spending model calls.
+  if (noun && count) { const n = normalizeSections(text, noun, count); if (n !== text) { stages.push("normalize"); text = n; } }
+
+  let reviewedText: string | null = null, reviewGap = "";
   const review = async (): Promise<Issue[] | null> => {
     stages.push("review"); prog("verifying");
-    const r = await opts.call([
-      { role: "system", content: REVIEW_SYSTEM },
-      { role: "user", content: `User request:\n${clip(request, 12000)}${opts.analysis.instructions?.consistency ? "\n\nAlso check continuity: each character's name, appearance and clothing must stay the same unless the story explicitly changes them, and events must follow in a logical order. Name the part number of any inconsistency." : ""}\n\nDraft answer:\n${clip(text, 30000)}` },
-    ]);
-    if (!r.ok) { stages.push("review-failed"); return null; }
-    const v = parseReview(r.text);
+    const consistency = opts.analysis.instructions?.consistency ? "\n\nAlso check continuity: each character's name, appearance and clothing must stay the same unless the story explicitly changes them, and events must follow in a logical order. Name the part number of any inconsistency." : "";
+    // Windows of whole sections so every part is reviewed, each with the opening section as a cross-window reference.
+    const secs = noun ? splitSections(text, noun).sections : [];
+    const windows: { from: number; to: number; body: string }[] = [];
+    if (secs.length && text.length > L.reviewWindowChars) {
+      let cur: typeof secs = [];
+      const flush = () => { if (cur.length) windows.push({ from: cur[0].num, to: cur[cur.length - 1].num, body: cur.map((x) => text.slice(x.start, x.end).trim()).join("\n\n") }); cur = []; };
+      for (const x of secs) { if (cur.length && cur.reduce((n, y) => n + y.end - y.start, 0) + x.end - x.start > L.reviewWindowChars) flush(); cur.push(x); }
+      flush();
+    } else windows.push({ from: 0, to: 0, body: clip(text, L.reviewWindowChars) });
+    const ref = secs.length && windows.length > 1 ? `\n\nReference — the opening ${noun} (for continuity only, already reviewed separately):\n${clip(text.slice(secs[0].start, secs[0].end).trim(), 3000)}` : "";
+    const out: Issue[] = []; let done = 0;
+    for (const w of windows.slice(0, L.maxReviewWindows)) {
+      if (overBudget()) break;
+      const part = windows.length > 1 ? `\n\nYou are reviewing ${label} ${w.from}–${w.to} of ${count}.` : "";
+      const r = await opts.call([
+        { role: "system", content: REVIEW_SYSTEM },
+        { role: "user", content: `User request:\n${clip(request, 12000)}${consistency}${part}${w.from > 1 ? ref : ""}\n\nDraft answer:\n${w.body}` },
+      ]);
+      if (!r.ok) { stages.push("review-failed"); continue; }
+      done++;
+      for (const m of parseReview(r.text).issues) {
+        const nums = noun ? [...m.matchAll(new RegExp(`\\b${noun}s?\\s*#?(\\d{1,4})`, "gi"))].map((x) => Number(x[1])).filter((n) => n >= 1 && n <= count) : [];
+        out.push({ code: "review", message: m, ...(nums.length ? { items: [...new Set(nums)] } : {}) });
+      }
+    }
+    if (!done) return null;
+    reviewGap = done < windows.length ? `the independent review covered ${done} of ${windows.length} parts; the rest had only the automatic checks.` : "";
     reviewedText = text;
-    return v.issues.map((m) => ({ code: "review", message: m } as Issue));
+    return out;
   };
 
   // 3. Deterministic validation + independent review → bounded correction → revalidate.
@@ -133,23 +186,31 @@ export async function runDeepPipeline(opts: {
   while (issues.some((i) => i.code !== "truncated") && corrections < L.maxCorrections && !overBudget()) {
     corrections++;
     stages.push("correct"); prog("correcting");
-    // Targeted: when every problem is local to known sections, rewrite only those and splice them back.
-    const noun = opts.analysis.items?.noun;
-    const targets = noun && issues.every((i) => i.items?.length) ? [...new Set(issues.flatMap((i) => i.items!))].sort((x, y) => x - y) : null;
+    // Targeted: when every problem is local to labelled sections, rewrite only those (in batches) and splice them back.
+    const labelled = noun ? splitSections(text, noun).sections.length > 0 : false;
+    const targets = noun && labelled && issues.every((i) => i.items?.length) ? [...new Set(issues.flatMap((i) => i.items!))].sort((x, y) => x - y) : null;
     let candidate: string | null = null, candFinish: string | null = "stop";
     if (targets && noun) {
       stages.push("correct-sections");
-      const r = await opts.call([...messages, { role: "assistant", content: text },
-        { role: "user", content: `Automatic verification found these problems:\n- ${issues.map((i) => i.message).join("\n- ")}\nRewrite ONLY ${noun} ${targets.join(", ")} to fix them, keeping the same labels ("${cap(noun)} N"), characters and story. Output only those ${noun}s, nothing else.` }]);
-      if (!r.ok) break;
-      candidate = spliceSections(text, r.text, noun, targets);
+      let work = text, any = false;
+      for (let k = 0; k < targets.length && !overBudget(); k += L.batchItems) {
+        const group = targets.slice(k, k + L.batchItems);
+        const related = issues.filter((i) => i.items!.some((n) => group.includes(n))).map((i) => i.message);
+        const r = await opts.call([...messages, { role: "assistant", content: clip(work, 40000) },
+          { role: "user", content: `Automatic verification found these problems:\n- ${related.join("\n- ")}\nRewrite ONLY ${noun} ${ranges(group)} to fix them (write any missing ones), keeping the same labels ("${label} N"), characters and story. Output only those ${noun}s, nothing else.${contextFor(work, group[0]) ? `\n\nContinuity reference:\n${contextFor(work, group[0])}` : ""}` }]);
+        if (!r.ok) break;
+        const next = spliceSections(work, r.text, noun, group);
+        if (next != null) { work = next; any = true; }
+      }
+      if (any) candidate = work;
     }
     if (candidate == null) {
-      const r = await opts.call([...messages, { role: "assistant", content: text },
+      const r = await opts.call([...messages, { role: "assistant", content: clip(text, 40000) },
         { role: "user", content: `Automatic verification found these problems in your answer:\n- ${issues.map((i) => i.message).join("\n- ")}\nReturn the complete corrected answer only (not a diff, no commentary about the correction). Keep everything that was already correct.` }]);
       if (!r.ok) break;
       candidate = r.text; candFinish = r.finishReason;
     }
+    if (noun && count) candidate = normalizeSections(candidate, noun, count);
     const r = { text: candidate, finishReason: candFinish };
     // Always revalidate the complete output, so a targeted fix can't hide a regression elsewhere.
     let next = validateCandidate(r.text, opts.analysis, r.finishReason);
@@ -162,16 +223,20 @@ export async function runDeepPipeline(opts: {
         if (rv) next = [...next, ...rv];
       }
       issues = next;
-    }
+    } else stages.push("regression-rejected");
     if (!issues.length) break;
   }
 
   prog("assembling");
-  // 4. Honest disclosure of anything still unresolved or unchecked.
+  // 4. Honest disclosure of anything still unresolved, unchecked or not generated within limits.
+  const missingNow = noun && count ? issues.filter((i) => i.code === "missing").flatMap((i) => i.items ?? []) : [];
   if (issues.length) {
     text += `\n\n> **Verification note:** some requirements are still not met after ${corrections} correction attempt(s):\n${issues.map((i) => `> - ${i.message}`).join("\n")}`;
   } else if (opts.review && reviewedText !== text) {
     text += "\n\n> **Verification note:** the independent review step could not run for this answer, so only the automatic checks were applied.";
+  } else if (reviewGap) text += `\n\n> **Verification note:** ${reviewGap}`;
+  if (missingNow.length && (pending.length || overBudget())) {
+    text += `\n>\n> The full ${count} ${noun}s could not be completed within this request's time limit. Reply "continue with ${noun}s ${ranges(missingNow)}" to generate the rest.`;
   }
   return { ok: true, text, remaining: issues, corrections, continuations, stages };
 }

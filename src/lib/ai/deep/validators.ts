@@ -6,7 +6,14 @@ import { checkInstructions } from "./instructions";
 /** `items` lists the affected section numbers when the problem is local, enabling targeted correction. */
 export type Issue = { code: string; message: string; items?: number[] };
 
-const NUMBER_WORDS = "\\d{1,3}";
+const NUMBER_WORDS = "\\d{1,4}";
+
+/** "1-3, 7, 9-12" — keeps messages short for large outputs while naming every number. */
+export function ranges(nums: number[]): string {
+  const s = [...new Set(nums)].sort((a, b) => a - b), out: string[] = [];
+  for (let i = 0; i < s.length; i++) { let j = i; while (j + 1 < s.length && s[j + 1] === s[j] + 1) j++; out.push(j > i ? `${s[i]}-${s[j]}` : `${s[i]}`); i = j; }
+  return out.join(", ");
+}
 
 /** Numbers of the top-level outputs, in the order they appear. Prefers labelled items ("Scene 3"). */
 export function extractItemNumbers(text: string, noun?: string): number[] {
@@ -28,9 +35,9 @@ export function checkSequence(nums: number[], expected: number): Issue[] {
   for (const n of nums) (seen.has(n) ? dups : seen).add(n);
   const missing = Array.from({ length: expected }, (_, i) => i + 1).filter((n) => !seen.has(n));
   const extra = [...seen].filter((n) => n < 1 || n > expected).sort((a, b) => a - b);
-  if (missing.length) issues.push({ code: "missing", message: `Missing item(s): ${missing.join(", ")}.` });
-  if (dups.size) issues.push({ code: "duplicate", message: `Duplicated item(s): ${[...dups].join(", ")}.` });
-  if (extra.length) issues.push({ code: "extra", message: `Unrequested extra item(s): ${extra.join(", ")} (only ${expected} requested).` });
+  if (missing.length) issues.push({ code: "missing", items: missing, message: `Missing item(s): ${ranges(missing)}.` });
+  if (dups.size) issues.push({ code: "duplicate", message: `Duplicated item(s): ${ranges([...dups])}.` });
+  if (extra.length) issues.push({ code: "extra", message: `Unrequested extra item(s): ${ranges(extra)} (only ${expected} requested).` });
   for (let i = 1; i < nums.length; i++) {
     if (nums[i] < nums[i - 1]) { issues.push({ code: "order", message: `Items are out of order (${nums[i - 1]} appears before ${nums[i]}).` }); break; }
   }
