@@ -44,7 +44,7 @@ export function parseInstructions(text: string): Instructions {
   const langs = Object.keys(LANG_SCRIPT).join("|");
   const partOf = (s: string): ScriptRule["part"] =>
     /dialog(?:ue)?s?|speech|conversation|lines spoken/i.test(s) ? "dialogue" : /descriptions?|narration|narrative|prose|actions?/i.test(s) ? "description" : "all";
-  const reA = new RegExp(`\\b(${langs})\\b(?:\\s*\\((?:in\\s+)?(\\w+)\\))?\\s+(dialog(?:ue)?s?|speech|conversations?|descriptions?|narration|prose)(?:\\s+(?:in|using)\\s+(\\w+)(?:\\s+script)?)?`, "gi");
+  const reA = new RegExp(`\\b(${langs})\\b(?:\\s*\\((?:in\\s+)?(\\w+)\\))?\\s+(?:[a-z]+\\s+)?(dialog(?:ue)?s?|speech|conversations?|descriptions?|narration|prose)(?:\\s+(?:in|using)\\s+(\\w+)(?:\\s+script)?)?`, "gi");
   const reB = new RegExp(`\\b(dialog(?:ue)?s?|speech|descriptions?|narration|prose)\\s+(?:must be |should be |are |is |written )?in\\s+(${langs})\\b(?:\\s*(?:\\(|in |using )\\s*(\\w+))?`, "gi");
   const add = (lang: string, part: ScriptRule["part"], scriptWord?: string) => {
     const script = (scriptWord && LANG_SCRIPT[scriptWord.toLowerCase()]) || LANG_SCRIPT[lang.toLowerCase()];
