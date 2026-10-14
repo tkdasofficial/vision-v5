@@ -420,7 +420,8 @@ export const TOOLS: Tool[] = [
   } },
   { id: "web_search", category: "Search & retrieval", desc: "Search the web and return sources", params: '{"query": string}', run: async (_c, p) => {
     const { webSearch } = await import("@/lib/search/search.server"); const r = await webSearch(String(p?.query ?? ""));
-    if (!r.results.length) throw new Error("The web search returned no results.");
+    if (r.status === "failed") throw new Error("Web search is unavailable right now — no sources could be reached.");
+    if (!r.results.length) throw new Error("The web search ran but returned no results.");
     return { data: r.results, text: r.results.slice(0, 10).map((x, i) => `${i + 1}. [${x.title}](${x.url}) — ${x.snippet}`).join("\n") };
   } },
   { id: "search_files", category: "Search & retrieval", desc: "Search inside all attached files (including PDFs, Word, Excel, ZIP text files) for words", params: '{"query": string}', run: async (c, p) => {
