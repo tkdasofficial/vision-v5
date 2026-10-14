@@ -70,7 +70,9 @@ export const Route = createFileRoute("/api/chat")({
           if (pm) system += `\n\n${pm}`;
         }
         let searchUsed = "none";
-        const wantSearch = prefs.webSearch === "always" || (prefs.webSearch === "auto" && task.executionMode === "research");
+        // "auto" also searches when any mode is explicitly asked for sources, so citations come from a real search, not memory.
+        const { asksForSources } = await import("@/lib/ai/request-route");
+        const wantSearch = prefs.webSearch === "always" || (prefs.webSearch === "auto" && (task.executionMode === "research" || asksForSources(lastText)));
         if (wantSearch && lastText.trim()) {
           const { webSearch, sourcesBlock } = await import("@/lib/search/search.server");
           try {

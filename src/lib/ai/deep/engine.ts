@@ -63,9 +63,11 @@ export const ENGINE_LIMITS: ExecutionLimits = {
 
 /** Requests with a fixed number of separate deliverables are decomposed; everything else uses the single-answer pipeline. */
 export function shouldDecompose(a: RequestAnalysis): boolean {
-  return !!a.items && a.items.count >= 2 && a.items.count <= 20 && !a.wantsJson;
+  // Paragraphs/sentences/lines/bullets are parts of ONE text: writing them separately breaks flow and is slow.
+  return !!a.items && a.items.count >= 2 && a.items.count <= 20 && !a.wantsJson && !TEXT_UNITS.test(a.items.noun);
 }
 
+const TEXT_UNITS = /^(paragraph|sentence|line|bullet|bullet point|point|word|verse|stanza)s?$/i;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}\n…[shortened]` : s);
 
@@ -338,9 +340,11 @@ export async function runDeepEngine(o: EngineOptions): Promise<EngineResult> {
   progress("assembling");
   const ok = S.tasks.every((t) => t.status === "verified") && S.finalValidation === "passed";
   S.overall = ok ? "completed" : S.tasks.some((t) => t.status === "verified") ? "incomplete" : "failed";
+  // The user's "no headings" rule also applies to the assembled labels.
+  const label = (t: DeepTask) => (o.analysis.instructions?.noHeadings ? "" : `## ${cap(noun)} ${t.index + 1}: ${t.title}\n\n`);
   const parts = S.tasks.map((t) => t.status === "verified" || t.output
-    ? `## ${cap(noun)} ${t.index + 1}: ${t.title}\n\n${t.output ?? ""}${t.status !== "verified" ? `\n\n> **Not verified (${t.status}):** ${t.findings.join(" ")}` : ""}`
-    : `## ${cap(noun)} ${t.index + 1}: ${t.title}\n\n> **Not produced (${t.status}):** ${t.findings.join(" ") || "no result"}`);
+    ? `${label(t)}${t.output ?? ""}${t.status !== "verified" ? `\n\n> **Not verified (${t.status}):** ${t.findings.join(" ")}` : ""}`
+    : `${label(t)}> **${cap(noun)} ${t.index + 1} not produced (${t.status}):** ${t.findings.join(" ") || "no result"}`);
   let text = parts.join("\n\n");
   if (!ok) {
     const lines = [...S.finalFindings];

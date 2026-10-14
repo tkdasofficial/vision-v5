@@ -1,0 +1,26 @@
+import { describe, it, expect } from "vitest";
+import { parseInstructions, checkInstructions } from "@/lib/ai/deep/instructions";
+import { asksForSources } from "@/lib/ai/request-route";
+
+describe("Deep Thinking live-test regressions", () => {
+  it("'no headings' is parsed and a heading in the answer is flagged", () => {
+    const ins = parseInstructions("exactly 3 paragraphs; no headings, no bullet lists");
+    expect(ins.noHeadings).toBe(true);
+    expect(checkInstructions("## Paragraph 1\n\nText.", ins, null).map((i) => i.code)).toContain("headings");
+    expect(checkInstructions("Text only.\n\nMore text.", ins, null).map((i) => i.code)).not.toContain("headings");
+  });
+  it("asking for sources triggers a real search, source code does not", () => {
+    expect(asksForSources("Who won the 2018 World Cup? Cite sources.")).toBe(true);
+    expect(asksForSources("Explain photosynthesis with sources")).toBe(true);
+    expect(asksForSources("Show me the source code for a todo app")).toBe(false);
+  });
+});
+
+import { shouldDecompose } from "@/lib/ai/deep/engine";
+import { analyzeRequest } from "@/lib/ai/deep/analyze";
+describe("Deep engine decomposition", () => {
+  it("paragraphs of one text are written together, separate deliverables still split", () => {
+    expect(shouldDecompose(analyzeRequest("Write a product description in exactly 3 paragraphs, each 40-60 words."))).toBe(false);
+    expect(shouldDecompose(analyzeRequest("Write 6 visual prompts for a story about a fox"))).toBe(true);
+  });
+});
