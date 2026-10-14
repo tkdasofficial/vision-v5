@@ -39,6 +39,10 @@ export const Route = createFileRoute("/api/chat")({
           })
           .filter((m: any) => (typeof m.content === "string" ? m.content.trim() : m.content.length));
         if (!messages.length) return Response.json({ error: "Message is empty." }, { status: 400 });
+        // Budgeted context: keep the newest turns and earlier standing instructions instead of blind truncation.
+        const { budgetHistory } = await import("@/lib/ai/context");
+        const budgeted = budgetHistory(messages);
+        messages.splice(0, messages.length, ...budgeted.messages);
 
         const last = messages[messages.length - 1].content;
         const lastText = typeof last === "string" ? last : last.map((p: any) => p.text ?? "").join(" ");
@@ -74,9 +78,13 @@ export const Route = createFileRoute("/api/chat")({
         if (task.executionMode === "deep") {
           const { analyzeRequest } = await import("@/lib/ai/deep/analyze");
           const { planAddendum } = await import("@/lib/ai/deep/pipeline");
+          const { buildRequirements, requirementsPrompt } = await import("@/lib/ai/requirements");
+          const { taskBrief } = await import("@/lib/ai/context");
           deepAnalysis = analyzeRequest(lastText);
-          system += planAddendum(deepAnalysis);
+          const brief = taskBrief(lastText);
+          system += planAddendum(deepAnalysis) + requirementsPrompt(buildRequirements(deepAnalysis, lastText)) + (brief ? `\n\n${brief}` : "");
         }
+        if (budgeted.dropped) system += `\n\nNote: ${budgeted.dropped} older message(s) were left out to fit the context budget; if the user refers to them, say you can't see them instead of guessing.`;
         const fullMessages = [{ role: "system", content: system }, ...messages];
 
         if (deepAnalysis && !lastHasMedia) {
