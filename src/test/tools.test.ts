@@ -139,3 +139,21 @@ describe("planner", () => {
     expect(parsePlan('{"steps":[],"reply":"hi"}', known).reply).toBe("hi");
   });
 });
+
+describe("file test-pass regressions", () => {
+  it("refuses to turn prose into fake spreadsheet rows", async () => {
+    await expect(run("convert_document", ctx([f("notes.txt", "Plain line\nAnother line")]), { to: "xlsx" })).rejects.toThrow(/no table/);
+    await expect(run("convert_document", ctx([f("p.html", "<h1>Hi</h1><p>text</p>", "text/html")]), { to: "csv" })).rejects.toThrow(/no table/);
+  });
+  it("converts only the Markdown table from a document", async () => {
+    const o = await run("convert_document", ctx([f("r.md", "# R\n\nIntro\n\n| Region | Q1 |\n|---|---|\n| North | 120 |")]), { to: "csv" });
+    expect(strFromU8(o.files![0].bytes)).toBe("Region,Q1\nNorth,120\n");
+  });
+  it("warns when a PDF cannot draw Hindi text", async () => {
+    const o = await run("create_document", { ...ctx(), complete: async () => "# T\n\nहिंदी" }, { format: "pdf" });
+    expect(o.text).toMatch(/5 character\(s\).*"\?"/);
+  });
+  it("reports a damaged PDF instead of crashing", async () => {
+    await expect(run("pdf_merge", ctx([f("a.pdf", "%PDF-1.4 x", "application/pdf"), f("b.pdf", "nope", "application/pdf")]))).rejects.toThrow(/damaged or not a valid PDF/);
+  });
+});
