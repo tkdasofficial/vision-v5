@@ -118,6 +118,11 @@ export function checkInstructions(text: string, ins: Instructions, noun: string 
     if (ins.words.per === "item" && sections.length) {
       const bad = units.map((u) => ({ num: u.num, n: countWords(u.body) })).filter((u) => out(u.n));
       if (bad.length) issues.push({ code: "word_count", items: bad.map((b) => b.num), message: `Each ${noun} must have ${rule} words; ${bad.slice(0, 40).map((b) => `${noun} ${b.num} has ${b.n}`).join(", ")}${bad.length > 40 ? ` and ${bad.length - 40} more (${ranges(bad.slice(40).map((b) => b.num))})` : ""}.` });
+    } else if (ins.words.per === "item" && noun && /^paragraphs?$/i.test(noun)) {
+      // Unlabelled paragraphs: each blank-line block is one paragraph.
+      const paras = body.split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p && !/^#{1,6}\s/.test(p));
+      const bad = paras.map((p, i) => ({ num: i + 1, n: countWords(p) })).filter((u) => out(u.n));
+      if (bad.length) issues.push({ code: "word_count", message: `Each paragraph must have ${rule} words; ${bad.map((b) => `paragraph ${b.num} has ${b.n}`).join(", ")}.` });
     } else {
       const n = countWords(body);
       if (out(n)) issues.push({ code: "word_count", message: `The answer must have ${rule} words; it has ${n}.` });

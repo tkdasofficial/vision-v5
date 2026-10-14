@@ -24,3 +24,12 @@ describe("Deep engine decomposition", () => {
     expect(shouldDecompose(analyzeRequest("Write 6 visual prompts for a story about a fox"))).toBe(true);
   });
 });
+
+describe("unlabelled paragraph word counts", () => {
+  it("checks each blank-line paragraph, not the whole answer", () => {
+    const ins = parseInstructions("exactly 3 paragraphs; each paragraph between 5 and 8 words");
+    const w = (n: number) => Array(n).fill("word").join(" ");
+    expect(checkInstructions(`${w(6)}\n\n${w(7)}\n\n${w(5)}`, ins, "paragraph").filter((i) => i.code === "word_count")).toEqual([]);
+    expect(checkInstructions(`${w(6)}\n\n${w(12)}\n\n${w(5)}`, ins, "paragraph")[0]?.message).toMatch(/paragraph 2 has 12/);
+  });
+});
