@@ -11,7 +11,7 @@ export async function startJob(userId: string, id: string, type: JobType, input:
     const existing = await getJob(userId, id).catch(() => null);
     if (existing) return existing;
   }
-  const stored = type === "runtime_task" ? { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, sourceArtifactId: input.sourceArtifactId ?? null } : type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : type === "agent_task" ? { prompt: input.prompt, sources: input.sources ?? [] } : input;
+  const stored = type === "runtime_task" ? { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, sourceArtifactId: input.sourceArtifactId ?? null } : type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : type === "agent_task" ? { prompt: input.prompt, sources: input.sources ?? [], ...(input.resumeFrom ? { resumeFrom: input.resumeFrom } : {}) } : input;
   const job = await createJob(id, userId, type, stored, attempt, sessionId);
   const { runCodeExport, runProjectGenerate, runZipAnalyze } = await import("./runners.server");
   try {
@@ -36,7 +36,9 @@ export async function startJob(userId: string, id: string, type: JobType, input:
         for (const s of sources) files.push({ name: s.name, mime: s.mime, bytes: await loadSource(userId, s.id) });
       }
       const { runAgent } = await import("./agent.server");
-      await runAgent(job, { prompt: input.prompt, files }, (f) => job.saveArtifact(f.name, f.mime, f.bytes, "file"));
+      const { claimResume, persistCheckpoint } = await import("./resume.server");
+      const resume = input.resumeFrom ? await claimResume(job, input.resumeFrom) : null;
+      await runAgent(job, { prompt: input.prompt, files }, (f) => job.saveArtifact(f.name, f.mime, f.bytes, "file"), { resume, persist: (cp) => persistCheckpoint(userId, id, cp) });
     }
     else {
       let bytes: Uint8Array = input.bytes;
