@@ -128,7 +128,7 @@ export const Route = createFileRoute("/api/chat")({
                 const { shouldDecompose, runDeepEngine } = await import("@/lib/ai/deep/engine");
                 if (shouldDecompose(deepAnalysis!)) {
                   const { d1ExecutionStore } = await import("@/lib/ai/deep/store.server");
-                  const r = await runDeepEngine({ request: lastText, requestId, conversationId, analysis: deepAnalysis!, baseSystem, call: call as any, reviewCall: reviewCall as any, store: d1ExecutionStore(caller.user.id), progress, log: (e) => console.log("[chat:deep:engine]", JSON.stringify({ user: caller.user.id, requestId, ...e })) });
+                  const r = await runDeepEngine({ request: lastText, requestId, conversationId, analysis: deepAnalysis!, baseSystem, call: call as any, reviewCall: reviewCall as any, store: d1ExecutionStore(caller.user.id), limits: { maxRetries: (await import("@/lib/ai/limits")).AI_LIMITS.outerRetries }, progress, log: (e) => console.log("[chat:deep:engine]", JSON.stringify({ user: caller.user.id, requestId, ...e })) });
                   console.log("[chat:deep]", JSON.stringify({ user: caller.user.id, engine: "tasks", model: usedModel, overall: r.state.overall, final: r.state.finalValidation, calls: r.calls, reused: r.reused, ms: Date.now() - t0 }));
                   if (r.state.overall === "failed" && !r.state.tasks.some((t) => t.output)) ctrl.enqueue(sseChunk(r.state.tasks.some((t) => /\(429\)/.test(t.findings.join(" "))) ? "AI is busy right now. Please try again in a moment." : "Deep Thinking couldn't produce an answer right now — no result was generated. Please try again."));
                   else for (let i = 0; i < r.text.length; i += 400) ctrl.enqueue(sseChunk(r.text.slice(i, i + 400)));
