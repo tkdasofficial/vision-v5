@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/jobs/$jobId")({
           if (prev.status !== "failed" && prev.status !== "cancelled" && prev.status !== "timed_out") return Response.json({ error: "Only failed or cancelled tasks can be retried." }, { status: 409 });
           if (prev.attempt >= 5) return Response.json({ error: "Retry limit reached." }, { status: 429 });
           const { startJob } = await import("@/lib/jobs/dispatch.server");
-          const job = await startJob(caller.user.id, body.newId, prev.type, prev.input, prev.attempt + 1, prev.sessionId);
+          const job = await startJob(caller.user.id, body.newId, prev.type, prev.type === "agent_task" ? { ...prev.input, resumeFrom: params.jobId } : prev.input, prev.attempt + 1, prev.sessionId);
           return Response.json({ job });
         }
         return Response.json({ error: "Unknown action." }, { status: 400 });
