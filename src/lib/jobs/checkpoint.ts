@@ -69,5 +69,5 @@ export function pendingSteps(cp: AgentCheckpoint): number[] {
 
 /** Re-keys a validated checkpoint to the new job that continues it. */
 export function rebind(cp: AgentCheckpoint, newJobId: string, now = new Date()): AgentCheckpoint {
-  return { ...cp, jobId: newJobId, running: null, savedAt: now.toISOString() };
+  return { ...cp, done: [...cp.done], jobId: newJobId, running: null, savedAt: now.toISOString() };
 }
