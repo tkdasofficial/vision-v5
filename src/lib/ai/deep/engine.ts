@@ -70,17 +70,18 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}\n…[shortened]` : s);
 
 /** Transient failures (rate limits, timeouts, 5xx, empty/malformed replies) retry with exponential backoff; permanent ones never do. */
-export async function callWithRetry(call: ModelCall, msgs: ChatMsg[], L: ExecutionLimits, sleep: (ms: number) => Promise<void>): Promise<CallResult & { tries: number }> {
+export async function callWithRetry(call: ModelCall, msgs: ChatMsg[], L: ExecutionLimits, sleep: (ms: number) => Promise<void>, over: () => boolean = () => false): Promise<CallResult & { tries: number }> {
   let last: CallResult = { ok: false, status: 502, reason: "not called" };
-  for (let i = 0; i <= L.maxRetries; i++) {
-    if (i) await sleep(L.retryBaseMs * 2 ** (i - 1));
+  let i = 0;
+  for (; i <= L.maxRetries; i++) {
+    if (i) { if (over()) break; await sleep(L.retryBaseMs * 2 ** (i - 1)); } // retries never pass the execution budget
     let r: CallResult;
     try { r = await call(msgs); } catch (e: any) { r = { ok: false, status: 502, reason: String(e?.message ?? e) }; }
     if (r.ok && r.text.trim()) return { ...r, tries: i + 1 };
     last = r.ok ? { ok: false, status: 502, reason: "malformed or empty model response" } : r;
-    if (!last.ok && !(last.status === 429 || last.status >= 500)) break;
+    if (!last.ok && !(last.status === 429 || last.status >= 500)) { i++; break; }
   }
-  return { ...last, tries: L.maxRetries + 1 };
+  return { ...last, tries: Math.min(i, L.maxRetries + 1) };
 }
 
 /** First balanced JSON object in a reply (ignores fences and chatter). */
@@ -207,7 +208,7 @@ export async function runDeepEngine(o: EngineOptions): Promise<EngineResult> {
   const t0 = now();
   const over = () => now() - t0 > L.budgetMs;
   let calls = 0;
-  const call = async (msgs: ChatMsg[], review = false) => { calls++; const r = await callWithRetry(review && o.reviewCall ? o.reviewCall : o.call, msgs, L, sleep); return r; };
+  const call = async (msgs: ChatMsg[], review = false) => { calls++; const r = await callWithRetry(review && o.reviewCall ? o.reviewCall : o.call, msgs, L, sleep, over); return r; };
 
   // Persistence / duplicate prevention: a finished execution for this request is returned as-is; an interrupted one resumes.
   let state = (await o.store?.load(o.requestId).catch(() => null)) ?? null;

@@ -8,6 +8,14 @@ export const AI_LIMITS = {
   messageChars: 20_000,
   /** Retry policy for transient provider failures. */
   retry: { attempts: 2, baseMs: 400, maxMs: 4_000 },
+  /** Time allowed until a provider starts streaming; every model call uses it. */
+  connectMs: 30_000,
+  /**
+   * Outer retries for callers that wrap streamFromProvider (Deep engine). Transport failures are already
+   * retried inside the provider layer, so the outer loop adds at most this many attempts (mainly for empty
+   * or malformed replies) instead of multiplying the inner retry count.
+   */
+  outerRetries: 1,
   /** Characters of the task brief carried into every split generation step. */
   briefChars: 2_000,
 } as const;

@@ -20,13 +20,17 @@ export async function createJob(id: string, userId: string, type: JobType, input
 export class JobRun {
   steps: JobStep[] = [];
   warnings: string[] = [];
+  readonly startedAt = Date.now();
   constructor(public id: string, public userId: string) {}
+  /** One structured line per finished job: outcome, timing and counts only — never inputs, outputs or file contents. */
+  private diag(outcome: string, extra: Record<string, unknown> = {}) { console.log(JSON.stringify({ tag: "[job]", jobId: this.id, outcome, ms: Date.now() - this.startedAt, steps: this.steps.length, warnings: this.warnings.length, ...extra })); }
   /** Rebuilds a JobRun from a stored row so later processes can keep appending real steps. */
   static restore(r: any) { const j = new JobRun(r.id, r.user_id); j.steps = JSON.parse(r.steps || "[]"); j.warnings = JSON.parse(r.warnings || "[]"); return j; }
   async cancelled() { await this.fail(new CancelledError()); }
   async timedOut(message: string) {
     this.closeLast("error");
     this.steps.push({ status: "timed_out", detail: message, at: now(), endedAt: now(), outcome: "error" });
+    this.diag("timed_out");
     await d1("UPDATE jobs SET status = 'timed_out', detail = ?, progress = NULL, steps = ?, error = ?, updated_at = ? WHERE id = ?", [message, JSON.stringify(this.steps), message, now(), this.id]);
   }
 
@@ -54,6 +58,7 @@ export class JobRun {
   }
   async finish(result: unknown) {
     const status: JobStatus = this.warnings.length ? "completed_with_warnings" : "completed";
+    this.diag(this.warnings.length ? "partial" : "completed");
     this.closeLast("ok");
     this.steps.push({ status, detail: JOB_STATUSES[status], at: now(), endedAt: now(), outcome: this.warnings.length ? "warn" : "ok" });
     await d1("UPDATE jobs SET status = ?, detail = ?, progress = NULL, steps = ?, warnings = ?, result = ?, updated_at = ? WHERE id = ?",
@@ -63,6 +68,7 @@ export class JobRun {
     const cancelled = e instanceof CancelledError;
     const status: JobStatus = cancelled ? "cancelled" : "failed";
     const message = cancelled ? "Cancelled" : safeError(e);
+    this.diag(cancelled ? "cancelled" : "failed", { kind: (e as any)?.name === "SupersededError" ? "superseded" : cancelled ? "cancelled" : "error" });
     this.closeLast(cancelled ? "warn" : "error");
     this.steps.push({ status, detail: message, at: now(), endedAt: now(), outcome: cancelled ? "warn" : "error" });
     await d1("UPDATE jobs SET status = ?, detail = ?, progress = NULL, steps = ?, warnings = ?, error = ?, result = ?, updated_at = ? WHERE id = ?",
