@@ -8,7 +8,6 @@ export async function startJob(userId: string, id: string, type: JobType, input:
   // (double tap, network retry) returns the existing job instead of running file work twice. A new request,
   // even with identical text, gets a new id and runs normally. Retries of failed jobs use their own path.
   if (attempt === 1) {
-    const { getJob } = await import("./jobs.server");
     const existing = await getJob(userId, id).catch(() => null);
     if (existing) return existing;
   }
