@@ -77,7 +77,7 @@ export function applyPrefs(p: Prefs) {
 }
 
 /** Extra system-prompt lines built from the user's AI preferences (server-side use). */
-export function promptAddendum(p: Prefs): string {
+export function promptAddendum(p: Prefs, opts: { personal?: boolean } = {}): string {
   const lines: string[] = [];
   if (p.responseLength === "concise") lines.push("Keep answers short and to the point.");
   if (p.responseLength === "detailed") lines.push("Give thorough, detailed answers.");
@@ -85,6 +85,7 @@ export function promptAddendum(p: Prefs): string {
   if (p.tone === "formal") lines.push("Use a formal, professional tone.");
   lines.push(p.codeComments ? "When writing code, include helpful comments." : "When writing code, keep comments minimal.");
   if (p.codeExplain === "full") lines.push("Explain code step by step after writing it.");
-  if (p.customInstructions.trim()) lines.push(`User's custom instructions (follow unless unsafe):\n${p.customInstructions.trim()}`);
+  // Project-only memory keeps personal custom instructions out of the project.
+  if (opts.personal !== false && p.customInstructions.trim()) lines.push(`User's custom instructions (follow unless unsafe):\n${p.customInstructions.trim()}`);
   return lines.join("\n");
 }

@@ -12,7 +12,23 @@ export type ProviderResult = { ok: true; body: ReadableStream<Uint8Array> } | { 
 
 const CONNECT_TIMEOUT_MS = 30_000; // time allowed until the provider starts answering
 
+/**
+ * Every model call (chat, Deep Thinking stages, Research, jobs/tools) goes through here, so the shared
+ * retry policy applies everywhere. Only transient 5xx/timeouts and a real provider 429 are retried; local
+ * cool-downs, missing config, permission and invalid-request errors fall through to the next model at once.
+ * Retries happen before any byte is streamed, so they never duplicate output.
+ */
 export async function streamFromProvider(t: ModelRef, messages: unknown[], opts: { maxTokens: number; deep: boolean }, signal: AbortSignal): Promise<ProviderResult> {
+  const { withRetry, classifyFailure } = await import("./failures");
+  const { result } = await withRetry((attempt) => attemptProvider(t, messages, opts, signal, attempt), {
+    classify: (r) => (r.ok ? null : /not configured|cooling down|queue full/.test(r.reason) ? "permanent" : classifyFailure(r.status, r.reason)),
+    signal,
+    onRetry: (i) => console.log("[ai:retry]", JSON.stringify({ provider: t.provider, model: t.model, ...i })),
+  });
+  return result;
+}
+
+async function attemptProvider(t: ModelRef, messages: unknown[], opts: { maxTokens: number; deep: boolean }, signal: AbortSignal, _attempt: number): Promise<ProviderResult> {
   const { url, key } = endpoint(t);
   if (!key) return { ok: false, status: 503, reason: "not configured" };
   const { limiter } = await import("./rate-limiter");
