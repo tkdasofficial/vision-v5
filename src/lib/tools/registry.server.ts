@@ -165,7 +165,7 @@ export const TOOLS: Tool[] = [
       const info: any = { name: f.name, size: P.fmtBytes(f.bytes.length), detectedType: P.sniffType(f.bytes)?.mime ?? (f.mime || "unknown"), sha256: (await sha("sha256", f.bytes)).hex };
       const k = kindOf(f);
       if (k === "image") info.dimensions = P.imageSize(f.bytes);
-      if (k === "pdf") { const d = await loadPdf(f.bytes, { ignoreEncryption: true, updateMetadata: false }); Object.assign(info, { pages: d.getPageCount(), title: d.getTitle(), author: d.getAuthor(), producer: d.getProducer(), created: d.getCreationDate()?.toISOString() }); }
+      if (k === "pdf") { const d = await loadPdf(f.bytes, { ignoreEncryption: true, updateMetadata: false }); try { Object.assign(info, { pages: d.getPageCount(), title: d.getTitle(), author: d.getAuthor(), producer: d.getProducer(), created: d.getCreationDate()?.toISOString() }); } catch { info.problem = "The PDF structure is damaged; pages and metadata can't be read."; } }
       if (k === "docx") { const d = docxText(f.bytes); Object.assign(info, { title: d.title, author: d.author, words: P.textStats(d.text).words }); }
       if (k === "xlsx") info.sheets = readXlsx(f.bytes, 100000).map((s) => ({ name: s.name, rows: s.rows.length, columns: Math.max(0, ...s.rows.map((r) => r.length)) }));
       if (k === "text") Object.assign(info, P.textStats(strFromU8(f.bytes.subarray(0, 2_000_000))));
