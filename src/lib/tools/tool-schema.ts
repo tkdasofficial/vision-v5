@@ -34,10 +34,10 @@ export function parseParamSpec(spec: string): ParamSchema {
   return out;
 }
 
-/** Validates (and lightly coerces numeric/boolean strings). Returns actionable errors; unknown keys are dropped. */
+/** Validates (and lightly coerces numeric/boolean strings). Returns actionable errors. */
 export function validateParams(schema: ParamSchema, params: Record<string, unknown>): { ok: true; params: Record<string, unknown> } | { ok: false; errors: string[] } {
   const errors: string[] = [];
-  const clean: Record<string, unknown> = {};
+  const clean: Record<string, unknown> = { ...params }; // undeclared keys (e.g. routed "file") pass through
   for (const [k, f] of Object.entries(schema)) {
     let v = params[k];
     if (v === undefined || v === null || v === "") { if (!f.optional) errors.push(`"${k}" is required`); continue; }
@@ -65,4 +65,14 @@ export function validateToolOut(out: unknown): string | null {
   if (o.preview !== undefined && !(o.preview && typeof o.preview.content === "string" && (o.preview.kind === "svg" || o.preview.kind === "markdown"))) return "preview result is malformed";
   const has = (typeof o.text === "string" && o.text.trim()) || o.table?.length || o.files?.length || o.data !== undefined || o.preview;
   return has ? null : "tool returned an empty result";
+}
+
+/** The one execution path for a tool: validate input → run → validate output. Errors are actionable. */
+export async function executeTool<C, O>(tool: { id: string; params: string; run: (c: C, p: any) => Promise<O> }, ctx: C, params: Record<string, unknown>): Promise<O> {
+  const v = validateParams(parseParamSpec(tool.params), params);
+  if (!v.ok) throw new Error(`Invalid input for ${tool.id}: ${v.errors.join("; ")}. Expected ${tool.params}`);
+  const out = await tool.run(ctx, v.params);
+  const bad = validateToolOut(out);
+  if (bad) throw new Error(`${tool.id}: ${bad}`);
+  return out;
 }
