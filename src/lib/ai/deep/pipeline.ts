@@ -20,7 +20,9 @@ export type DeepResult =
 /** Extra system instructions derived from the deterministic analysis (incl. a pre-computed feasible timeline). */
 export function planAddendum(a: RequestAnalysis): string {
   const lines: string[] = [];
-  if (a.items) lines.push(`Deliver exactly ${a.items.count} ${a.items.noun}s, labelled "${cap(a.items.noun)} 1" … "${cap(a.items.noun)} ${a.items.count}", in order. Do not add, merge, skip or reorder any.`);
+  // Paragraphs/sentences/lines are parts of one text; labelling them ("Paragraph 1") breaks plain-text and "no headings" requests.
+  if (a.items && (/^(paragraph|sentence|line|verse|stanza)s?$/i.test(a.items.noun) || a.instructions?.noHeadings)) lines.push(`Deliver exactly ${a.items.count} ${a.items.noun}s in order, separated by blank lines, with no labels or numbers in front of them.`);
+  else if (a.items) lines.push(`Deliver exactly ${a.items.count} ${a.items.noun}s, labelled "${cap(a.items.noun)} 1" … "${cap(a.items.noun)} ${a.items.count}", in order. Do not add, merge, skip or reorder any.`);
   if (a.length === "short") lines.push("The user asked for a short answer: keep the final reply brief while keeping every required element.");
   if (a.length === "detailed") lines.push("The user asked for detail: give a complete, thorough answer covering every requested element.");
   if (a.wantsJson) lines.push("Output valid JSON in a single ```json fenced block.");
