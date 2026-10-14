@@ -4,6 +4,13 @@ import type { JobType } from "@/lib/builder/statuses";
 import { createJob, getJob, safeError } from "./jobs.server";
 
 export async function startJob(userId: string, id: string, type: JobType, input: any, attempt = 1, sessionId: string | null = null) {
+  // Idempotency: the client mints one id per intentional request. A replay of the same id by the same user
+  // (double tap, network retry) returns the existing job instead of running file work twice. A new request,
+  // even with identical text, gets a new id and runs normally. Retries of failed jobs use their own path.
+  if (attempt === 1) {
+    const existing = await getJob(userId, id).catch(() => null);
+    if (existing) return existing;
+  }
   const stored = type === "runtime_task" ? { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, sourceArtifactId: input.sourceArtifactId ?? null } : type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : type === "agent_task" ? { prompt: input.prompt, sources: input.sources ?? [] } : input;
   const job = await createJob(id, userId, type, stored, attempt, sessionId);
   const { runCodeExport, runProjectGenerate, runZipAnalyze } = await import("./runners.server");

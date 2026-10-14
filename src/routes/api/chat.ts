@@ -58,10 +58,17 @@ export const Route = createFileRoute("/api/chat")({
         const deep = task.executionMode !== "default";
         // User preferences (Settings → AI Preferences) are read server-side, never trusted from the request.
         const { parsePrefs, promptAddendum } = await import("@/lib/settings");
-        const { d1 } = await import("@/lib/cloud/d1.server");
-        const prefRow: any = (await d1("SELECT prefs FROM user_settings WHERE user_id = ? LIMIT 1", [caller.user.id]).catch(() => []))[0];
-        const prefs = parsePrefs(prefRow?.prefs);
-        let system = `${systemPromptFor(task)}\n\n${promptAddendum(prefs)}`;
+        // One query loads prefs + this chat's project and its Memory setting (owner-checked).
+        const { loadChatContext, loadProjectMemory } = await import("@/lib/ai/memory.server");
+        const { includesPersonal } = await import("@/lib/ai/memory");
+        const chatId = typeof body?.conversationId === "string" ? body.conversationId.slice(0, 64) : undefined;
+        const chatCtx = await loadChatContext(caller.user.id, chatId);
+        const prefs = parsePrefs(chatCtx.prefsRaw);
+        let system = `${systemPromptFor(task)}\n\n${promptAddendum(prefs, { personal: includesPersonal(chatCtx.scope) })}`;
+        if (chatCtx.scope === "project" && chatCtx.projectId && chatId) {
+          const pm = await loadProjectMemory(caller.user.id, chatCtx.projectId, chatId);
+          if (pm) system += `\n\n${pm}`;
+        }
         let searchUsed = "none";
         const wantSearch = prefs.webSearch === "always" || (prefs.webSearch === "auto" && task.executionMode === "research");
         if (wantSearch && lastText.trim()) {
