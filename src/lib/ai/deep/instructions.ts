@@ -33,7 +33,7 @@ export function parseInstructions(text: string): Instructions {
   const t = text.slice(0, 20000);
   let words: WordRange | null = null;
   const per = (s: string) => (/\b(per|each|every)\b/i.test(s) ? "item" : "total") as WordRange["per"];
-  const range = /(\d{1,4})\s*(?:-|–|—|to)\s*(\d{1,4})\s*words?\b([^.\n]{0,30})/i.exec(t);
+  const range = /(?:between\s+)?(\d{1,4})\s*(?:-|–|—|to|and)\s*(\d{1,4})\s*words?\b([^.\n]{0,30})/i.exec(t);
   if (range) words = { min: Number(range[1]), max: Number(range[2]), per: per(range[3] + t.slice(Math.max(0, range.index - 30), range.index)) };
   else {
     const max = /\b(?:under|at most|no more than|maximum(?: of)?|max|up to|within)\s*(\d{1,5})\s*words?\b([^.\n]{0,30})/i.exec(t);
