@@ -9,6 +9,8 @@ export type Instructions = {
   maxChars: number | null;
   scripts: ScriptRule[];
   noCommentary: boolean;
+  /** User forbade headings/titles ("no headings", "plain text"); checked deterministically. */
+  noHeadings?: boolean;
   /** Continuity/consistency was asked for — subjective, checked by the reviewer, never claimed as verified. */
   consistency: boolean;
 };
@@ -31,7 +33,7 @@ export function parseInstructions(text: string): Instructions {
   const t = text.slice(0, 20000);
   let words: WordRange | null = null;
   const per = (s: string) => (/\b(per|each|every)\b/i.test(s) ? "item" : "total") as WordRange["per"];
-  const range = /(\d{1,4})\s*(?:-|–|—|to)\s*(\d{1,4})\s*words?\b([^.\n]{0,30})/i.exec(t);
+  const range = /(?:between\s+)?(\d{1,4})\s*(?:-|–|—|to|and)\s*(\d{1,4})\s*words?\b([^.\n]{0,30})/i.exec(t);
   if (range) words = { min: Number(range[1]), max: Number(range[2]), per: per(range[3] + t.slice(Math.max(0, range.index - 30), range.index)) };
   else {
     const max = /\b(?:under|at most|no more than|maximum(?: of)?|max|up to|within)\s*(\d{1,5})\s*words?\b([^.\n]{0,30})/i.exec(t);
@@ -57,7 +59,8 @@ export function parseInstructions(text: string): Instructions {
 
   const noCommentary = /\b(no|without)\s+(?:any\s+)?(?:extra|additional|other)?\s*(commentary|comments|explanations?|preamble|intro(?:duction)?|notes)\b|\b(only|just)\s+(?:return|output|give)?\s*(?:the\s+)?(story|output|answer|code|json|list|scenes?)\s*(?:only|,|\.|$)|\b(?:return|output)\s+only\b/i.test(t);
   const consistency = /\b(consistent|consistency|continuity|continuous|coherent)\b/i.test(t);
-  return { words, maxChars: chars ? Number(chars[1]) : null, scripts, noCommentary, consistency };
+  const noHeadings = /\b(?:no|without)\s+(?:any\s+)?(?:headings?|headers?|titles?|section\s+titles?)\b|\bplain[\s-]text\b/i.test(t);
+  return { words, maxChars: chars ? Number(chars[1]) : null, scripts, noCommentary, consistency, noHeadings };
 }
 
 /** Word rule: a word is a whitespace-separated token containing at least one letter or digit (any script).
@@ -115,6 +118,11 @@ export function checkInstructions(text: string, ins: Instructions, noun: string 
     if (ins.words.per === "item" && sections.length) {
       const bad = units.map((u) => ({ num: u.num, n: countWords(u.body) })).filter((u) => out(u.n));
       if (bad.length) issues.push({ code: "word_count", items: bad.map((b) => b.num), message: `Each ${noun} must have ${rule} words; ${bad.slice(0, 40).map((b) => `${noun} ${b.num} has ${b.n}`).join(", ")}${bad.length > 40 ? ` and ${bad.length - 40} more (${ranges(bad.slice(40).map((b) => b.num))})` : ""}.` });
+    } else if (ins.words.per === "item" && noun && /^paragraphs?$/i.test(noun)) {
+      // Unlabelled paragraphs: each blank-line block is one paragraph.
+      const paras = body.split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p && !/^#{1,6}\s/.test(p));
+      const bad = paras.map((p, i) => ({ num: i + 1, n: countWords(p) })).filter((u) => out(u.n));
+      if (bad.length) issues.push({ code: "word_count", message: `Each paragraph must have ${rule} words; ${bad.map((b) => `paragraph ${b.num} has ${b.n}`).join(", ")}.` });
     } else {
       const n = countWords(body);
       if (out(n)) issues.push({ code: "word_count", message: `The answer must have ${rule} words; it has ${n}.` });
@@ -138,6 +146,7 @@ export function checkInstructions(text: string, ins: Instructions, noun: string 
     if (rule.part === "dialogue" && noDialogue.length) issues.push({ code: "dialogue_missing", items: sections.length ? noDialogue : undefined, message: `No ${rule.language} dialogue (in quotes) was found in ${sections.length ? `${noun} ${ranges(noDialogue)}` : "the answer"}.` });
   }
 
+  if (ins.noHeadings && /^#{1,6}\s/m.test(body)) issues.push({ code: "headings", message: "Remove every heading and title line — the user asked for no headings." });
   if (ins.noCommentary) {
     const pre = preamble.split("\n").map((l) => l.trim()).filter(Boolean);
     const extraIntro = sections.length ? pre.filter((l) => !/^#{1,6}\s|^\*\*[^*]+\*\*$/.test(l)) : pre.filter((l) => COMMENTARY.test(l));
@@ -186,6 +195,7 @@ export function instructionAddendum(ins: Instructions, noun: string | null): str
   }
   if (ins.maxChars) lines.push(`Keep the answer within ${ins.maxChars} characters.`);
   for (const s of ins.scripts) lines.push(`${s.part === "all" ? "All text" : s.part === "dialogue" ? "All dialogue (in double quotes)" : "All descriptions"} must be ${s.language} in ${s.script} script${s.part === "dialogue" ? "; do not mix in other scripts" : ""}.`);
+  if (ins.noHeadings) lines.push("Do not use any headings or title lines (no lines starting with #).");
   if (ins.noCommentary) lines.push("Return only the requested output: no intro, no closing remarks, no notes.");
   if (ins.consistency) lines.push("Keep characters' names, appearance, clothing and the timeline consistent across every part.");
   return lines;

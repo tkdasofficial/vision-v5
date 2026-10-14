@@ -39,3 +39,8 @@ export function routeRequest(content: string, mode: ChatMode = "default"): Reque
   if (excel) return { kind: "file", format: "xlsx" };
   return { kind: "chat" };
 }
+
+/** True when the user explicitly asks for sources/citations/references (not "source code"). */
+export function asksForSources(text: string): boolean {
+  return /\b(cite|citations?|with sources|(?:give|list|include|provide|add|show)\s+(?:me\s+)?(?:the\s+|your\s+)?(?:sources?|references?)(?!\s*code)|sources?\s+please)\b/i.test(text);
+}
