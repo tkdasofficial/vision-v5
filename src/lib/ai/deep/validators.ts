@@ -87,7 +87,11 @@ export function checkComplete(text: string, finishReason: string | null): Issue[
 
 export function validateCandidate(text: string, a: RequestAnalysis, finishReason: string | null = "stop"): Issue[] {
   const issues = [...checkComplete(text, finishReason)];
-  if (a.items) issues.push(...checkSequence(extractItemNumbers(text, a.items.noun), a.items.count));
+  // Unlabelled text units (paragraphs etc.) are counted as blank-line blocks instead of numbered labels.
+  if (a.items && (/^(paragraph|sentence|line|verse|stanza)s?$/i.test(a.items.noun) || a.instructions?.noHeadings) && !extractItemNumbers(text, a.items.noun).length) {
+    const blocks = text.split(/\n\s*\n/).map((b) => b.trim()).filter((b) => b && !/^>/.test(b) && !/^#{1,6}\s/.test(b));
+    if (/^paragraphs?$/i.test(a.items.noun) && blocks.length !== a.items.count) issues.push({ code: "count", message: `Expected exactly ${a.items.count} paragraphs; found ${blocks.length}.` });
+  } else if (a.items) issues.push(...checkSequence(extractItemNumbers(text, a.items.noun), a.items.count));
   if (a.wantsJson) issues.push(...checkJson(text));
   issues.push(...checkDurations(text, a));
   issues.push(...checkStructure(text));

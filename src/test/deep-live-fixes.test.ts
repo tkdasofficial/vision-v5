@@ -33,3 +33,12 @@ describe("unlabelled paragraph word counts", () => {
     expect(checkInstructions(`${w(6)}\n\n${w(12)}\n\n${w(5)}`, ins, "paragraph")[0]?.message).toMatch(/paragraph 2 has 12/);
   });
 });
+
+import { validateCandidate } from "@/lib/ai/deep/validators";
+describe("unlabelled paragraph count", () => {
+  it("three plain paragraphs satisfy 'exactly 3 paragraphs'; two do not", () => {
+    const a = analyzeRequest("Write exactly 3 paragraphs about bottles, no headings.");
+    expect(validateCandidate("One here.\n\nTwo here.\n\nThree here?", a).map((i) => i.code)).not.toContain("missing");
+    expect(validateCandidate("One here.\n\nThree here?", a).map((i) => i.code)).toContain("count");
+  });
+});
