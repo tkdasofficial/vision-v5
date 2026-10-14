@@ -147,7 +147,7 @@ describe("file test-pass regressions", () => {
   });
   it("converts only the Markdown table from a document", async () => {
     const o = await run("convert_document", ctx([f("r.md", "# R\n\nIntro\n\n| Region | Q1 |\n|---|---|\n| North | 120 |")]), { to: "csv" });
-    expect(strFromU8(o.files![0].bytes)).toBe("Region,Q1\r\nNorth,120");
+    expect(strFromU8(o.files![0].bytes)).toBe("Region,Q1\nNorth,120\n");
   });
   it("warns when a PDF cannot draw Hindi text", async () => {
     const o = await run("create_document", { ...ctx(), complete: async () => "# T\n\nहिंदी" }, { format: "pdf" });

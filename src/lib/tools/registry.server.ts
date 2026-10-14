@@ -74,7 +74,7 @@ async function tableOf(c: ToolCtx, p: any): Promise<unknown[][]> {
 }
 /** Loads a PDF, turning parser crashes into a clear message. */
 async function loadPdf(bytes: Uint8Array, opts?: Parameters<typeof PDFDocument.load>[1]) {
-  try { return await PDFDocument.load(bytes, opts); } catch { throw new Error("This PDF is damaged or not a valid PDF, so it can't be opened."); }
+  try { const d = await PDFDocument.load(bytes, opts); d.getPageCount(); d.getPages(); return d; } catch { throw new Error("This PDF is damaged or not a valid PDF, so it can't be opened."); }
 }
 const clean = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
