@@ -38,9 +38,11 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
   const persist = opts.persist ?? (async () => {});
   let plan: Plan | null = null;
   let cp: AgentCheckpoint;
+  let resumedSteps = 0;
   if (opts.resume) {
     // Resume: reuse the stored plan (the request is unchanged) and skip finished steps.
     cp = rebind(opts.resume.cp, job.id);
+    resumedSteps = cp.done.length;
     plan = { steps: cp.plan.steps, reply: cp.plan.reply };
     await job.step("thinking", `Resuming: ${cp.done.length} of ${plan.steps.length} step(s) already finished`);
   } else {
@@ -114,7 +116,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
     cp.running = null; cp.lastText = ctx.lastText.slice(0, 30000);
     await persist(cp);
   }
-  await job.finish({ prompt: input.prompt, steps: results, answer: plan.reply, resumedSteps: opts.resume ? opts.resume.cp.done.length : 0 });
+  await job.finish({ prompt: input.prompt, steps: results, answer: plan.reply, resumedSteps });
 }
 
 /** Finds the first balanced {...} block that parses as JSON (ignores fences and chatter around it). */

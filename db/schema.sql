@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS login_history (id TEXT PRIMARY KEY, user_id TEXT NOT 
 CREATE INDEX IF NOT EXISTS idx_login_history_user ON login_history(user_id, created_at);
 CREATE TABLE IF NOT EXISTS research_documents (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_research_documents_user ON research_documents(user_id, created_at);
-CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', detail TEXT DEFAULT '', progress REAL, steps TEXT DEFAULT '[]', warnings TEXT DEFAULT '[]', error TEXT, input TEXT DEFAULT '{}', result TEXT, cancel_requested INTEGER DEFAULT 0, attempt INTEGER DEFAULT 1, session_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', detail TEXT DEFAULT '', progress REAL, steps TEXT DEFAULT '[]', warnings TEXT DEFAULT '[]', error TEXT, input TEXT DEFAULT '{}', result TEXT, cancel_requested INTEGER DEFAULT 0, attempt INTEGER DEFAULT 1, session_id TEXT, checkpoint TEXT, resumed_by TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_jobs_user ON jobs(user_id, created_at);
 CREATE TABLE IF NOT EXISTS job_artifacts (id TEXT PRIMARY KEY, job_id TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, sha256 TEXT NOT NULL, drive_file_id TEXT NOT NULL, kind TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_job_artifacts_job ON job_artifacts(job_id);
