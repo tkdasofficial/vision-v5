@@ -45,7 +45,7 @@ export async function textOf(f: WorkFile, ctx?: ToolCtx): Promise<string> {
     if (!t) throw new Error("This PDF has no selectable text (it may be scanned). Ask me to read it as images instead.");
     return t.slice(0, MAX_TEXT);
   }
-  if (k === "docx") return docxText(f.bytes).text.slice(0, MAX_TEXT);
+  if (k === "docx") { try { return docxText(f.bytes).text.slice(0, MAX_TEXT); } catch { throw new Error(`${f.name} is damaged or not a real Word (.docx) file.`); } }
   if (k === "xlsx") return readXlsx(f.bytes, 5000).map((s) => `# ${s.name}\n${P.toCsv(s.rows)}`).join("\n").slice(0, MAX_TEXT);
   if (k === "image") { await ctx?.note(`Reading text in ${f.name}`); const { vision } = await import("./ai.server"); return vision(f.bytes, P.sniffType(f.bytes)?.mime ?? f.mime, "Transcribe all text in this image exactly, keeping line breaks. If there is no text, describe the image briefly."); }
   if (k === "audio") { await ctx?.note(`Transcribing ${f.name}`); const { transcribe } = await import("./ai.server"); return (await transcribe(f.bytes)).text; }
@@ -71,6 +71,10 @@ async function tableOf(c: ToolCtx, p: any): Promise<unknown[][]> {
   const trimmed = t.trim();
   if (trimmed.startsWith("[") || trimmed.startsWith("{")) { const j = JSON.parse(trimmed); const arr = Array.isArray(j) ? j : Object.values(j).find(Array.isArray) ?? [j]; return P.objectsToRows(arr as any); }
   return P.typedRows(P.parseCsv(t));
+}
+/** Loads a PDF, turning parser crashes into a clear message. */
+async function loadPdf(bytes: Uint8Array, opts?: Parameters<typeof PDFDocument.load>[1]) {
+  try { return await PDFDocument.load(bytes, opts); } catch { throw new Error("This PDF is damaged or not a valid PDF, so it can't be opened."); }
 }
 const clean = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
@@ -128,6 +132,9 @@ const mdTables = (md: string): unknown[][] => {
   const rows = md.split(/\r?\n/).filter((l) => /^\s*\|/.test(l) && !/^\s*\|[\s:|-]+\|\s*$/.test(l)).map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()));
   return rows.map((r) => r.map((c) => (/^-?\d+(\.\d+)?$/.test(c) ? Number(c) : c)));
 };
+/** Characters the built-in PDF fonts cannot draw (they are written as "?"). */
+export function pdfLostChars(md: string): number { return md.match(WIN)?.length ?? 0; }
+const pdfNote = (fmt: string, md: string) => { const n = fmt === "pdf" ? pdfLostChars(md) : 0; return n ? ` ⚠️ ${n} character(s) (for example Hindi or other non-Latin script, or emoji) can't be drawn by the PDF font and appear as "?". Choose DOCX, HTML or TXT to keep them.` : ""; };
 export async function buildDocument(format: string, title: string, md: string): Promise<WorkFile> {
   const n = P.slugify(title).slice(0, 60) || "document";
   switch (format) {
@@ -158,7 +165,7 @@ export const TOOLS: Tool[] = [
       const info: any = { name: f.name, size: P.fmtBytes(f.bytes.length), detectedType: P.sniffType(f.bytes)?.mime ?? (f.mime || "unknown"), sha256: (await sha("sha256", f.bytes)).hex };
       const k = kindOf(f);
       if (k === "image") info.dimensions = P.imageSize(f.bytes);
-      if (k === "pdf") { const d = await PDFDocument.load(f.bytes, { ignoreEncryption: true, updateMetadata: false }); Object.assign(info, { pages: d.getPageCount(), title: d.getTitle(), author: d.getAuthor(), producer: d.getProducer(), created: d.getCreationDate()?.toISOString() }); }
+      if (k === "pdf") { const d = await loadPdf(f.bytes, { ignoreEncryption: true, updateMetadata: false }); Object.assign(info, { pages: d.getPageCount(), title: d.getTitle(), author: d.getAuthor(), producer: d.getProducer(), created: d.getCreationDate()?.toISOString() }); }
       if (k === "docx") { const d = docxText(f.bytes); Object.assign(info, { title: d.title, author: d.author, words: P.textStats(d.text).words }); }
       if (k === "xlsx") info.sheets = readXlsx(f.bytes, 100000).map((s) => ({ name: s.name, rows: s.rows.length, columns: Math.max(0, ...s.rows.map((r) => r.length)) }));
       if (k === "text") Object.assign(info, P.textStats(strFromU8(f.bytes.subarray(0, 2_000_000))));
@@ -195,7 +202,7 @@ export const TOOLS: Tool[] = [
     const fmt = String(p?.format || "md").toLowerCase();
     if (p?.verbatim && c.lastText && !/xlsx|csv|excel/.test(fmt)) {
       const title = p?.title || c.lastText.match(/^#\s+(.*)/m)?.[1] || "Document";
-      return { text: `Saved the previous result as ${fmt.toUpperCase()}.`, files: [await buildDocument(fmt, title, c.lastText)] };
+      return { text: `Saved the previous result as ${fmt.toUpperCase()}.${pdfNote(fmt, c.lastText)}`, files: [await buildDocument(fmt, title, c.lastText)] };
     }
     if (/xlsx|csv|excel/.test(fmt) && (c.lastTable || c.files.some((f) => /\.(csv|tsv|json)$/i.test(f.name) || kindOf(f) === "xlsx"))) {
       // Real data is available: write it as-is instead of letting the AI retype (and possibly invent) numbers.
@@ -208,7 +215,7 @@ export const TOOLS: Tool[] = [
     const md = clean(await c.complete(`You write complete, polished documents in Markdown. Use # headings, lists and Markdown tables where useful.${/xlsx|csv|excel/.test(fmt) ? " The document MUST be a single Markdown table with a header row containing all data." : ""} Output only the document.`, `${p?.request || "Write the document."}${src}`, 6000));
     if (!md) throw new Error("The writer returned nothing.");
     const title = p?.title || md.match(/^#\s+(.*)/m)?.[1] || "Document";
-    return { text: md.slice(0, 20000), files: [await buildDocument(fmt, title, md)], preview: { kind: "markdown", content: md.slice(0, 20000) } };
+    return { text: md.slice(0, 20000) + pdfNote(fmt, md), files: [await buildDocument(fmt, title, md)], preview: { kind: "markdown", content: md.slice(0, 20000) } };
   } },
   { id: "convert_document", category: "File conversion", desc: "Convert a document between formats keeping its text: PDF/Word/HTML/Markdown/text/Excel/CSV → pdf, docx, html, md, txt, epub; images → pdf", params: '{"to": "pdf"|"docx"|"html"|"md"|"txt"|"epub"|"xlsx"|"csv", "file"?: string}', run: async (c, p) => {
     const to = String(p?.to || "").toLowerCase().replace("word", "docx");
@@ -221,7 +228,10 @@ export const TOOLS: Tool[] = [
     }
     const f = pick(c, p);
     if (["xlsx", "csv", "json"].includes(to)) {
-      const rows = await tableOf(c, p);
+      const tabular = kindOf(f) === "xlsx" || /\.(csv|tsv|json)$/i.test(f.name);
+      // Prose documents only convert when they contain a real table; never split paragraphs into fake rows.
+      const rows = tabular ? await tableOf(c, p) : mdTables(/\.html?$/i.test(f.name) ? "" : await textOf(f, c));
+      if (!tabular && rows.length < 2) throw new Error(`${f.name} has no table I can turn into ${to.toUpperCase()}. Only CSV, Excel, JSON or documents containing a Markdown table can be converted to data formats.`);
       if (to === "xlsx") return { text: `Converted ${rows.length} rows to Excel.`, files: [{ name: `${base(f.name)}.xlsx`, mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes: writeXlsx([{ name: base(f.name), rows }]) }] };
       if (to === "csv") return { text: `Converted ${rows.length} rows to CSV.`, files: [txt(`${base(f.name)}.csv`, P.toCsv(rows), "text/csv")] };
       const j = JSON.stringify(P.rowsToObjects(rows.map((r) => r.map((v) => String(v ?? "")))), null, 2); return { text: j.slice(0, 4000), files: [txt(`${base(f.name)}.json`, j, "application/json")] };
@@ -232,16 +242,16 @@ export const TOOLS: Tool[] = [
     const out = await buildDocument(to, base(f.name), md);
     out.name = `${base(f.name)}.${out.name.split(".").pop()}`;
     const warn = kindOf(f) === "pdf" ? " Layout, images and fonts from the PDF are not kept — only the text." : "";
-    return { text: `Converted **${f.name}** to ${to.toUpperCase()}.${warn}`, files: [out] };
+    return { text: `Converted **${f.name}** to ${to.toUpperCase()}.${warn}${pdfNote(to, md)}`, files: [out] };
   } },
   { id: "pdf_merge", category: "PDF processing", desc: "Merge all attached PDFs (in order) into one", params: "{}", run: async (c) => {
     const pdfs = many(c, ["pdf"]); if (pdfs.length < 2) throw new Error("Attach at least two PDFs to merge.");
     const out = await PDFDocument.create();
-    for (const f of pdfs) { const d = await PDFDocument.load(f.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((pg) => out.addPage(pg)); }
+    for (const f of pdfs) { const d = await loadPdf(f.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((pg) => out.addPage(pg)); }
     return { text: `Merged ${pdfs.length} PDFs into ${out.getPageCount()} pages.`, files: [{ name: "merged.pdf", mime: "application/pdf", bytes: await out.save() }] };
   } },
   { id: "pdf_pages", category: "PDF processing", desc: "Split, extract, delete or rotate PDF pages. pages like '1-3,5'", params: '{"action": "extract"|"split_each"|"delete"|"rotate", "pages"?: string, "angle"?: 90|180|270}', run: async (c, p) => {
-    const f = pick(c, p, ["pdf"]); const src = await PDFDocument.load(f.bytes); const n = src.getPageCount();
+    const f = pick(c, p, ["pdf"]); const src = await loadPdf(f.bytes); const n = src.getPageCount();
     const sel = parsePages(p?.pages, n);
     if (p?.action === "rotate") { for (const i of sel) src.getPage(i).setRotation(degrees(((src.getPage(i).getRotation().angle + (Number(p.angle) || 90)) % 360))); return { text: `Rotated ${sel.length} page(s).`, files: [{ name: `${base(f.name)}-rotated.pdf`, mime: "application/pdf", bytes: await src.save() }] }; }
     if (p?.action === "split_each") {
@@ -255,14 +265,14 @@ export const TOOLS: Tool[] = [
     return { text: `New PDF has ${keep.length} of ${n} pages.`, files: [{ name: `${base(f.name)}-${p?.action === "delete" ? "trimmed" : "extract"}.pdf`, mime: "application/pdf", bytes: await d.save() }] };
   } },
   { id: "pdf_watermark", category: "PDF processing", desc: "Stamp text (e.g. CONFIDENTIAL) or page numbers onto every page of a PDF", params: '{"text"?: string, "page_numbers"?: boolean}', run: async (c, p) => {
-    const f = pick(c, p, ["pdf"]); const d = await PDFDocument.load(f.bytes); const font = await d.embedFont(StandardFonts.HelveticaBold);
+    const f = pick(c, p, ["pdf"]); const d = await loadPdf(f.bytes); const font = await d.embedFont(StandardFonts.HelveticaBold);
     d.getPages().forEach((pg, i) => { const { width, height } = pg.getSize();
       if (p?.text) pg.drawText(String(p.text).replace(WIN, "?").slice(0, 60), { x: width * 0.18, y: height * 0.45, size: Math.min(64, width / 9), font, color: rgb(0.8, 0.1, 0.1), opacity: 0.25, rotate: degrees(35) });
       if (p?.page_numbers) pg.drawText(`${i + 1} / ${d.getPageCount()}`, { x: width / 2 - 14, y: 20, size: 10, font, color: rgb(0.3, 0.3, 0.3) }); });
     return { text: "Stamped every page.", files: [{ name: `${base(f.name)}-stamped.pdf`, mime: "application/pdf", bytes: await d.save() }] };
   } },
   { id: "pdf_metadata", category: "Metadata", desc: "Set or remove PDF metadata (title, author, subject, keywords); 'strip' clears all", params: '{"title"?: string, "author"?: string, "subject"?: string, "keywords"?: string, "strip"?: boolean}', run: async (c, p) => {
-    const f = pick(c, p, ["pdf"]); const d = await PDFDocument.load(f.bytes, { updateMetadata: false });
+    const f = pick(c, p, ["pdf"]); const d = await loadPdf(f.bytes, { updateMetadata: false });
     if (p?.strip) { d.setTitle(""); d.setAuthor(""); d.setSubject(""); d.setKeywords([]); d.setProducer(""); d.setCreator(""); }
     if (p?.title) d.setTitle(p.title); if (p?.author) d.setAuthor(p.author); if (p?.subject) d.setSubject(p.subject); if (p?.keywords) d.setKeywords(String(p.keywords).split(/,\s*/));
     return { text: p?.strip ? "Removed the PDF's metadata." : "Updated the PDF's metadata.", files: [{ name: `${base(f.name)}.pdf`, mime: "application/pdf", bytes: await d.save() }] };
