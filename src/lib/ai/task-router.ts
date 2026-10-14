@@ -1,7 +1,22 @@
 // Task Router: classifies each request independently. Pure and browser-safe so it is unit-tested.
 import type { ChatMode, OutputKind } from "./modes";
 
+export type TaskNeed = "reasoning" | "research" | "code" | "files" | "data" | "tools";
+
+/** Capability needs scored from several signals (not a single keyword); informational, never changes the mode. */
+export function taskNeeds(text: string, hasMedia: boolean, mode: ChatMode): TaskNeed[] {
+  const n = new Set<TaskNeed>();
+  if (mode === "deep" || DEEP_ACTION.test(text)) n.add("reasoning");
+  if (mode === "research" || RESEARCH_ACTION.test(text) || /\b(latest|today|current|news|20\d\d)\b/i.test(text)) n.add("research");
+  if (mode === "coding" || CODE_ACTION.test(text) || HAS_CODE.test(text)) n.add("code");
+  if (hasMedia || /\b(pdf|docx|xlsx|csv|zip|upload(ed)?|attach(ed|ment)?|file)\b/i.test(text)) n.add("files");
+  if (/\b(table|chart|average|sum|percent|statistics?|dataset|spreadsheet)\b/i.test(text) || /^\s*\|.*\|\s*$/m.test(text)) n.add("data");
+  if (/\b(convert|compress|qr ?code|barcode|resize|merge|export)\b/i.test(text)) n.add("tools");
+  return [...n];
+}
+
 export type TaskClassification = {
+  needs: TaskNeed[];
   executionMode: ChatMode;
   taskType: "chat" | "light" | "reasoning" | "research" | "code";
   requiresWebSearch: boolean;
@@ -42,6 +57,7 @@ export function classifyTask(input: { text: string; mode: ChatMode; hasMedia: bo
 
   const light = mode === "default" && (GREETING.test(own) || text.length < 80);
   return {
+    needs: taskNeeds(text, input.hasMedia, mode),
     executionMode: mode,
     taskType: mode === "research" ? "research" : mode === "coding" ? "code" : mode === "deep" ? "reasoning" : light ? "light" : "chat",
     // Live search is a research need; whether it is actually available is decided by the server.

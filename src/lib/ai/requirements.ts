@@ -32,7 +32,7 @@ export function markConflicts(r: Requirement[], a: RequestAnalysis): Requirement
 
 /** Applies validator issue codes to requirement statuses. Unchecked items stay "pending" — never claimed met. */
 export function applyIssues(r: Requirement[], codes: string[], checked: string[]): Requirement[] {
-  const map: Record<string, string[]> = { count: ["missing", "extra", "count"], json: ["json"], words: ["word_count"], "no-commentary": ["commentary"], durations: ["duration"], total: ["total_duration"] };
+  const map: Record<string, string[]> = { count: ["missing", "extra", "duplicate", "order"], json: ["json_missing", "json_invalid"], words: ["word_count"], "no-commentary": ["commentary"], durations: ["duration_missing", "duration_unsupported"], total: ["duration_total", "duration_conflict_hidden"], table: ["table_columns", "table_duplicate", "table_total"] };
   return r.map((x) => {
     if (x.status === "impossible" || x.status === "conflicting") return x;
     const base = x.id.startsWith("script:") ? ["script"] : map[x.id] ?? [];
